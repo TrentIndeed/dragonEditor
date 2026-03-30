@@ -1,0 +1,114 @@
+@import "tailwindcss";
+
+@theme {
+  /* Backgrounds — slate-blue tinted dark layers (not pure black) */
+  --color-bg-deep: #0B1120;
+  --color-bg-panel: #111827;
+  --color-bg-panel-header: #0F1629;
+  --color-bg-surface: #1E293B;
+  --color-bg-hover: #263249;
+  --color-bg-active: #334155;
+  --color-bg-elevated: #3B4963;
+
+  /* Borders — visible slate */
+  --color-border-default: #1E293B;
+  --color-border-active: #334155;
+  --color-border-focus: #475569;
+
+  /* Text — high contrast hierarchy */
+  --color-text-primary: #F1F5F9;
+  --color-text-secondary: #94A3B8;
+  --color-text-muted: #64748B;
+  --color-text-faint: #475569;
+
+  /* Accents */
+  --color-accent-primary: #38BDF8;
+  --color-accent-primary-muted: #0284C7;
+  --color-accent-orange: #FB923C;
+  --color-accent-red: #F87171;
+  --color-accent-blue: #60A5FA;
+  --color-accent-purple: #A78BFA;
+  --color-accent-green: #4ADE80;
+  --color-accent-yellow: #FBBF24;
+
+  /* Clip colors */
+  --color-clip-video: #3B82F6;
+  --color-clip-mic: #22C55E;
+  --color-clip-broll: #A855F7;
+  --color-clip-caption: #F59E0B;
+  --color-clip-sfx: #06B6D4;
+  --color-clip-music: #EC4899;
+
+  /* Stage colors */
+  --color-stage-trim: #38BDF8;
+  --color-stage-audio: #4ADE80;
+  --color-stage-zoom: #60A5FA;
+  --color-stage-broll: #A78BFA;
+  --color-stage-caption: #FBBF24;
+  --color-stage-sfx: #22D3EE;
+  --color-stage-color: #FB923C;
+  --color-stage-review: #F97316;
+  --color-stage-export: #4ADE80;
+  --color-stage-thumbnail: #FBBF24;
+
+  /* Font families */
+  --font-heading: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'IBM Plex Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0B1120;
+  color: #F1F5F9;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.25);
+  color: #F1F5F9;
+}
+
+/* Focus ring */
+.focus-ring:focus-visible {
+  outline: 2px solid #38BDF8;
+  outline-offset: 2px;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
