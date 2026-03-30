@@ -1,6 +1,6 @@
 # Dragon Editor
 
-AI-powered video editing pipeline. Upload raw footage, and the AI runs a 10-stage pipeline that trims, syncs audio, places zooms, generates captions, adds sound effects, color grades, and exports to DaVinci Resolve or directly to YouTube/TikTok/Instagram.
+AI-powered video editing pipeline. Upload raw footage, and the AI runs a 10-stage pipeline that trims, syncs audio, places zooms, generates captions, adds sound effects, color grades, and exports to MP4 or DaVinci Resolve. Uses Claude Code CLI for AI calls (OAuth — no API key needed).
 
 ---
 
@@ -13,11 +13,27 @@ npm run dev
 
 Open `http://localhost:3000` in your browser.
 
+### Enable AI Pipeline (optional)
+
+The pipeline works without AI (uses rule-based fallbacks). To enable real AI analysis:
+
+```bash
+npm install -g @anthropic-ai/claude-code   # install Claude CLI
+claude "hello"                              # one-time OAuth login (opens browser)
+```
+
+Once authenticated, all pipeline stages use Claude to analyze your footage.
+
 ## Run Tests
 
 ```bash
-npm test              # run all 250 tests once
-npm run test:watch    # watch mode
+npm test                    # 251 unit/component tests (Vitest)
+npm run test:e2e            # 12 E2E tests (Playwright)
+npm run test:visual         # 11 visual regression screenshot tests
+npm run test:visual:update  # regenerate screenshot baselines
+npm run test:ai             # 4 AI-powered visual validation tests
+npm run test:all            # unit + e2e + visual
+npm run test:watch          # watch mode (unit tests only)
 ```
 
 ---
@@ -77,33 +93,43 @@ Click **"Start pipeline"** in the AI Chat Panel. The pipeline runs 10 stages in 
 Each stage shows a progress bar, then "AI Reviewing...", then an approval card.
 
 **Stage 1: Trim & Cut**
-AI finds dead space, false starts, repeated takes, filler words. You see a list of suggested cuts with timecodes and reasons. Accept or reject each cut individually. You can also switch to the **Transcript** tab and delete lines directly - the corresponding video is removed from the timeline.
+AI analyzes the transcript to find dead space, false starts, filler word clusters, and repeated takes. Changes are applied immediately — you see cuts happen on the timeline in real-time. Approve to keep, or Revert to undo all cuts.
 
-- "Remove fillers" button deletes all filler words (um, uh, like, you know, etc.) in one click
-- Deleted lines show strikethrough with a "Restore" button
-- All edits are non-destructive and undoable
+- Cuts use **ripple delete** — removes the section and closes the gap (no holes)
+- Linked video+audio clips stay in sync through cuts
+- Each cut is individually undoable with Ctrl+Z
+- You can also switch to the **Transcript** tab and delete lines directly
 
 **Stage 2: Audio Setup**
 AI syncs mic audio to video, normalizes volume to -14 LUFS, applies noise reduction, enables audio ducking. You see audio analysis metrics (peak level, average level, noise floor, gain applied) and can toggle noise reduction level (light/medium/heavy) and audio ducking on/off.
 
 **Stage 3: Zooms & Reframe**
-AI places zoom keyframes based on your content style. Entertainment gets a snap zoom every 5-10 seconds. Podcast gets subtle drifts every 15-30 seconds. You see each suggestion with timecode, zoom type (Push In, Snap, Drift, Pull Out), zoom level, and reason. Accept/reject individually or use "Accept All"/"Reject All".
+AI places dynamic zoom keyframes based on your content style. Each zoom has a 3-phase lifecycle: **ramp-in** (smooth scale up) → **hold** (stay at zoom level) → **ramp-out** (scale back to 1x). Easing curves vary by type:
+
+- **Snap**: instant zoom in 0.1s, hold 1.5s (Hormozi style)
+- **Push-in**: smooth 0.8s ease-in-out, hold 2s (cinematic)
+- **Drift**: slow 1.5s linear, hold 3s (Ken Burns)
+- **Pull-out**: 0.6s ease-out reveal, hold 1s
+
+You see the zoom effect live on the video preview with a scale indicator and progress bar.
 
 **Stage 4: B-Roll & Overlays**
 AI scans the transcript for keywords (show, look, example, data, step, tool, result) and suggests overlay placements. Three modes: Picture-in-Picture, Full Overlay (cutaway), Pause & Show. Accept or reject each suggestion.
 
 **Stage 5: Captions**
-AI generates captions from the transcript. Picks a style based on your content style:
+AI generates TikTok-authentic captions with per-word timing and phrase-based chunking. Words are grouped into 2-8 word chunks at natural phrase boundaries. Each word gets individual highlight timing synced to speech.
 
-| Content Style | Caption Style | Look |
-|---|---|---|
-| Entertainment | Karaoke Pop | Extra-bold, word-by-word color highlights |
-| Education | Clean Subtitle | Subtitle bar with keyword highlighting |
-| Podcast | Speaker Labels | Lower-third with speaker name badges |
-| High Retention | Word by Word | Typewriter animation with emphasis scaling |
-| Clickbait | Bold Pop | Punchy pop-in, centered, extra-bold |
+| Content Style | Caption Style | Words/chunk | Animation | Look |
+|---|---|---|---|---|
+| Entertainment | **Hormozi Punch** | 1-3 | Pop (scale 1.15x) | ALL CAPS, yellow key words (#FFE500), heavy stroke |
+| Education | **Clean Minimal** | 8 | Fade | White text, frosted glass background, lower-third |
+| Podcast | **Speaker Labels** | 6 | Fade | Speaker name badge, sky blue highlights |
+| High Retention | **Bounce Pop** | 4 | Bounce (scale 1.2x + translateY) | ALL CAPS, hot pink (#FF1493), words invisible until spoken |
+| Clickbait | **Hormozi Punch** | 1-3 | Pop | Same as entertainment |
 
-You can switch between styles, preview how captions look, and remove individual caption blocks.
+Also available: **Karaoke Sweep** — classic TikTok/CapCut word-by-word gold highlight with black box background.
+
+Captions render live on the video preview with stroke, shadow, and animation per style. Switch between styles instantly.
 
 **Stage 6: Sound Effects**
 AI places sound effects from a built-in library of 14 SFX (whoosh, pop, ding, impact, swoosh, notification, ambient, typing, bass drop, laugh). Placement rules depend on content style - entertainment gets whooshes on cuts, pops on emphasis, bass drops on punchlines. Podcast gets minimal transition whooshes. Accept/reject each placement.
@@ -124,26 +150,54 @@ Configure export: pick platforms (Local, YouTube, TikTok, Instagram), quality (D
 **Stage 10: AI Thumbnail Generator**
 For YouTube uploads. AI generates 4 thumbnail variants with style-specific prompts (bold colors for entertainment, professional layout for education, etc.). Select one from a 2x2 grid or regenerate with new prompts.
 
-### 5. Export to DaVinci Resolve
+### 5. Export
 
-Click the **Export** button in the top bar at any time. Three formats:
+Click **Export** in the top bar. Two tabs:
 
-| Format | What transfers | How to import in Resolve |
-|--------|---------------|--------------------------|
-| **EDL** (.edl) | Cuts, timecodes, clip names (single video track) | File > Import > Timeline > EDL |
+**Export Video** (default) — renders MP4:
+- Resolution: 720p / 1080p / 4k (auto-adapts to vertical/horizontal)
+- Frame rate: 24 / 30 / 60 fps
+- Progress bar during render
+
+**Project File** — for DaVinci Resolve:
+
+| Format | What transfers | How to import |
+|--------|---------------|--------------|
 | **FCPXML** (.fcpxml) | Multi-track, clips, audio, transcript markers | File > Import > Timeline > FCPXML |
-| **SRT** (.srt) | Captions with timecodes and speaker labels | Media Pool > Import Subtitle |
+| **EDL** (.edl) | Cuts, timecodes, clip names | File > Import > Timeline > EDL |
+| **SRT** (.srt) | Captions with timecodes | Media Pool > Import Subtitle |
 
-Pick your frame rate (24/25/30/60) and click Export. The file downloads to your browser.
+### 6. Save & Persistence
+
+- **Ctrl+S** or **Save button** — downloads a `.dragon` project file (JSON with all state)
+- **Auto-save** every 30 seconds to localStorage
+- **Media files** stored in IndexedDB — survive page reload (any file size)
+- **Open Project File** — load a `.dragon` file from the start screen or top bar
+- Orange dot in top bar indicates unsaved changes
 
 ### Keyboard Shortcuts
 
 | Key | Action |
 |-----|--------|
-| Space | Play / Pause |
-| V | Selection tool |
-| B | Razor tool |
-| Ctrl+Scroll | Zoom timeline |
+| **Space** | Play / Pause |
+| **V** | Selection tool |
+| **B** | Razor tool |
+| **H** | Hand tool (pan timeline) |
+| **N** | Toggle snap |
+| **Delete / Backspace** | Delete selected clips or media |
+| **J / L** | Step back / forward 5s (Shift: 1s) |
+| **K** | Stop playback |
+| **Left / Right** | Nudge playhead 0.1s (Shift: 1s) |
+| **Home / End** | Go to start / end |
+| **[ / ]** | Zoom timeline out / in |
+| **Escape** | Deselect all, stop playback |
+| **Ctrl+Z** | Undo |
+| **Ctrl+Shift+Z / Ctrl+Y** | Redo |
+| **Ctrl+S** | Save project file |
+| **Ctrl+A** | Select all clips |
+| **Ctrl+C / V / X** | Copy / Paste / Cut clips |
+| **Ctrl+D** | Deselect all |
+| **Ctrl+Scroll** | Zoom timeline |
 
 ---
 
@@ -152,60 +206,70 @@ Pick your frame rate (24/25/30/60) and click Export. The file downloads to your 
 ### Architecture
 
 ```
-Next.js 14+ (App Router) + TypeScript + Tailwind CSS v4
-Zustand (state management) + lucide-react (icons)
+Next.js 15.5 (App Router) | TypeScript strict | Tailwind CSS v4
+Zustand 5 | lucide-react | @dnd-kit
+Claude Code CLI (OAuth AI gateway) | IndexedDB (media persistence)
+Vitest + @testing-library/react | Playwright (E2E + visual)
 ```
 
-The app is a single-page application. The home page (`src/app/page.tsx`) switches between `ModeSelectScreen` and `EditorLayout` based on the project store state.
+### AI Pipeline Architecture
+
+All AI calls route through the Claude Code CLI — no API key needed:
+
+```
+Browser → callAI(prompt) → fetch('/api/ai')
+  → Next.js API Route → execFileSync('claude', [...])
+  → Claude CLI (OAuth via Claude Max/Pro subscription)
+  → Claude API → JSON response → parsed back
+  → Falls back to rule-based mock if CLI unavailable
+```
 
 ### State Management
 
-All state lives in 9 Zustand stores. Components subscribe to slices of state and re-render only when their slice changes.
+All state lives in 11 Zustand stores with localStorage + IndexedDB persistence:
 
-| Store | File | State |
-|-------|------|-------|
-| `projectStore` | `src/stores/projectStore.ts` | Project config (name, mode, style), editor open/closed |
-| `mediaStore` | `src/stores/mediaStore.ts` | Imported media items, active tab, selection |
-| `timelineStore` | `src/stores/timelineStore.ts` | Clips on 6 tracks, playhead, zoom level, selection, tools, snap |
-| `transcriptStore` | `src/stores/transcriptStore.ts` | Transcript lines, delete/restore, filler word detection |
-| `pipelineStore` | `src/stores/pipelineStore.ts` | 10 pipeline stages with status/progress, stage runners |
-| `chatStore` | `src/stores/chatStore.ts` | Chat messages (user/assistant/system), approval cards |
-| `captionStore` | `src/stores/captionStore.ts` | Caption blocks, active style, generation state |
-| `audioStore` | `src/stores/audioStore.ts` | Audio config (sync, normalize, denoise, ducking), analysis results |
-| `zoomStore` | `src/stores/zoomStore.ts` | Zoom suggestions, accepted/rejected, keyframes |
+| Store | Key State |
+|-------|-----------|
+| `projectStore` | Project config, editor open/closed |
+| `mediaStore` | Media items, IndexedDB file blobs, thumbnails |
+| `timelineStore` | Clips (6 tracks), playhead, tools, snap, linked clips |
+| `transcriptStore` | Transcript lines, delete/restore |
+| `pipelineStore` | 10 stages, stageSnapshots for revert, pause/stop |
+| `chatStore` | Messages |
+| `captionStore` | Caption blocks, active style |
+| `audioStore` | Audio config |
+| `zoomStore` | Zoom suggestions + keyframes |
+| `historyStore` | 50-level undo/redo stack |
+| `saveStore` | Auto-save state, dirty tracking |
 
 ### Pipeline Engine
 
-The pipeline is driven by `pipelineStore`. When a stage is approved, `advanceToNextStage()` finds the next implemented stage and calls `runStage(id)`. Each stage runner:
-
-1. Sets status to `running`
-2. Increments progress on an interval timer
-3. At 100%, sets status to `reviewing`
-4. After a delay, sets status to `awaiting-approval`
-5. The chat panel detects `awaiting-approval` and renders the stage's approval card
-
 ```
-runStage(id) -> setStatus('running') -> progress timer -> setStatus('reviewing')
-    -> delay -> setStatus('awaiting-approval') -> approval card renders
-    -> user clicks Approve -> approveStage(id) -> advanceToNextStage()
+Stage starts → snapshot taken → changes applied to timeline immediately
+→ approval card shows → user sees changes live on video preview
+→ Approve = keep changes, advance    Revert = restore from snapshot
 ```
+
+Stages can be run independently, paused, stopped, or reverted.
 
 ### Stage Logic
 
-Each stage has a logic file in `src/lib/` that contains pure functions (no React, no side effects):
+Each stage has an async AI function + rule-based fallback:
 
-| Stage | Logic File | Key Functions |
-|-------|-----------|---------------|
-| 1. Trim | `mockData.ts` | Mock trim suggestions with timecodes and reasons |
-| 2. Audio | `audio-setup.ts` | `analyzeAudio()`, `detectMicSync()`, `runAudioSetup()` |
-| 3. Zoom | `zooms.ts` | `generateZoomSuggestions()`, `zoomSuggestionsToKeyframes()` |
-| 4. B-Roll | `broll.ts` | `generateBRollSuggestions()`, `brollSuggestionsToTimelineClips()` |
-| 5. Caption | `captions.ts` | `generateCaptionsFromTranscript()`, `captionBlocksToTimelineClips()` |
-| 6. SFX | `sfx.ts` | `generateSFXPlacements()`, `sfxPlacementsToTimelineClips()` |
-| 7. Color | `color-correction.ts` | `runColorCorrection()`, `autoSelectPreset()`, 8 preset definitions |
-| 8. Review | `ai-review.ts` | `runAIReview()`, `getReviewScore()` |
-| 9. Export | `export-pipeline.ts` | `generatePlatformMetadata()`, quality/format configs |
-| 10. Thumbnail | `thumbnail.ts` | `generateThumbnailVariants()`, `selectThumbnail()` |
+| Stage | Logic File | AI Function | Fallback |
+|-------|-----------|-------------|----------|
+| 1. Trim | `trim.ts` | `generateTrimSuggestionsAI()` | Filler/bracket detection |
+| 2. Audio | `audio-setup.ts` | (mock) | `runAudioSetup()` |
+| 3. Zoom | `zooms.ts` | `generateZoomSuggestionsAI()` | Interval placement |
+| 4. B-Roll | `broll.ts` | `generateBRollSuggestionsAI()` | Keyword matching |
+| 5. Caption | `captions.ts` | (rule-based) | 5 TikTok styles, word chunking |
+| 6. SFX | `sfx.ts` | `generateSFXPlacementsAI()` | Trigger-based rules |
+| 7. Color | `color-correction.ts` | (rule-based) | `autoSelectPreset()` |
+| 8. Review | `ai-review.ts` | `runAIReviewWithClaude()` | Gap/coverage checks |
+| 9. Export | `export-pipeline.ts` | (config only) | Platform metadata |
+| 10. Thumbnail | `thumbnail.ts` | `generateThumbnailVariantsAI()` | Template prompts |
+
+Additional engine: `zoom-engine.ts` — keyframe interpolation with easing curves (ramp-in/hold/ramp-out)
 
 ### Export Formats
 
@@ -246,11 +310,12 @@ page.tsx
 
 ### UI Design
 
-- Dark theme: `#09090B` to `#18181B` background layers, zinc-based text hierarchy
-- Typography: Inter (headings), DM Sans (body), JetBrains Mono (timecodes/labels)
-- Accent: cyan `#22D3EE` primary, orange/red/blue/purple/green for stages
+- Dark theme: slate-blue tinted (`#0B1120` to `#1E293B`), not pure black
+- Typography: Inter (headings), IBM Plex Sans (body), JetBrains Mono (timecodes)
+- Accent: sky blue `#38BDF8` primary, per-stage colors for pipeline
 - All icons from lucide-react with `strokeWidth={1.5}`
 - Panels resizable via drag handles
+- Right-click context menus on media and clips
 - Reduced motion support via `prefers-reduced-motion`
 
 ### File Structure
@@ -258,44 +323,41 @@ page.tsx
 ```
 src/
   app/
-    layout.tsx              # Root layout, font loading
-    page.tsx                # Routes between ModeSelect and Editor
-    globals.css             # Tailwind v4 theme tokens, scrollbar, selection
+    layout.tsx                  # Root layout, Google Fonts
+    page.tsx                    # Routes: ModeSelectScreen or EditorLayout
+    globals.css                 # Tailwind v4 @theme tokens
+    api/ai/route.ts             # Claude CLI gateway (POST /api/ai)
   components/
-    mode-select/            # Project creation screen
-    layout/                 # TopBar, EditorLayout, ResizeHandle
-    media-bin/              # Media import panel
-    preview/                # Video preview, transcript editor, transport
-    timeline/               # Timeline, tracks, clips, playhead, toolbar
-    ai-chat/                # Chat panel, pipeline progress, 10 approval cards
-    shared/                 # ExportModal
-  stores/                   # 9 Zustand stores
-  lib/                      # Pure logic: types, constants, stage logic, export utils
-  __tests__/
-    pipeline-integration.test.ts    # 53 store/logic tests
-    captions.test.ts                # 32 caption stage tests
-    stages-2-3-6.test.ts            # 44 audio/zoom/sfx tests
-    stages-4-7-8-9-10.test.ts       # 31 broll/color/review/export/thumbnail tests
-    components/
-      mode-select.test.tsx          # 11 component tests
-      timeline.test.tsx             # 16 component tests
-      transcript.test.tsx           # 12 component tests
-      preview.test.tsx              # 8 component tests
-      ai-chat.test.tsx              # 22 component tests
-      media-export.test.tsx         # 13 component tests
-      editor-layout.test.tsx        # 8 component tests
+    mode-select/                # ModeSelectScreen, ModeCard, StylePicker
+    layout/                     # EditorLayout, TopBar, ResizeHandle, KeyboardShortcuts,
+                                #   PlaybackEngine, AutoSave, MediaRestorer
+    media-bin/                  # MediaBin (file picker, drag-drop, thumbnails, context menu)
+    preview/                    # PreviewPanel, VideoPreview (video+caption+zoom+broll overlay),
+                                #   TranscriptEditor, TransportControls
+    timeline/                   # Timeline (hand pan), Track (drop+razor+snap),
+                                #   Clip (drag+context menu+linked), Playhead (drag)
+    ai-chat/                    # AIChatPanel, PipelineProgress, 10 approval cards
+    shared/                     # ExportModal (MP4 + project files), ContextMenu
+  stores/                       # 11 Zustand stores (see above)
+  lib/                          # AI functions, stage logic, zoom engine, export utils,
+                                #   persistence, types, constants
+  __tests__/                    # 251 unit/component tests
+e2e/
+  full-pipeline.spec.ts         # 12 E2E flow tests
+  visual-regression.spec.ts     # 11 screenshot baseline tests
+  ai-visual-validation.spec.ts  # 4 Claude Vision tests
 ```
 
 ### Tech Stack
 
 | Dependency | Purpose |
 |-----------|---------|
-| Next.js 15 | App Router, React framework |
-| TypeScript | Type safety |
+| Next.js 15.5 | App Router, API routes |
+| TypeScript strict | Type safety |
 | Tailwind CSS v4 | Styling with `@theme` tokens |
-| Zustand | Lightweight state management |
-| lucide-react | Icon library |
-| @dnd-kit | Drag and drop (timeline clips, media bin) |
-| Vitest | Test runner |
-| @testing-library/react | Component testing |
-| @vitejs/plugin-react | JSX transform for tests |
+| Zustand 5 | State management |
+| lucide-react | Icons |
+| Claude Code CLI | AI calls via OAuth (no API key) |
+| IndexedDB | Media file persistence |
+| Vitest + RTL | Unit/component tests |
+| Playwright | E2E + visual regression + AI validation |
