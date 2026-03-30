@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { ZoomSuggestion, ZoomKeyframe, ContentStyle } from '@/lib/types';
-import { generateZoomSuggestions, zoomSuggestionsToKeyframes } from '@/lib/zooms';
+import { generateZoomSuggestionsAI, zoomSuggestionsToKeyframes } from '@/lib/zooms';
 import { useTranscriptStore } from './transcriptStore';
 import { useTimelineStore } from './timelineStore';
 
@@ -22,10 +22,10 @@ export const useZoomStore = create<ZoomStore>((set, get) => ({
   keyframes: [],
   isGenerated: false,
 
-  generateZooms: (contentStyle) => {
+  generateZooms: async (contentStyle) => {
     const lines = useTranscriptStore.getState().lines;
     const duration = useTimelineStore.getState().duration;
-    const suggestions = generateZoomSuggestions(lines, contentStyle, duration);
+    const suggestions = await generateZoomSuggestionsAI(lines, contentStyle, duration);
     set({ suggestions, isGenerated: true, keyframes: [] });
   },
 

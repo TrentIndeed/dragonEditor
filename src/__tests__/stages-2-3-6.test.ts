@@ -254,15 +254,15 @@ describe('Stage 3: Zooms & Reframe', () => {
       useTimelineStore.getState().loadMockData();
     });
 
-    it('should generate zooms from content style', () => {
-      useZoomStore.getState().generateZooms('entertainment');
+    it('should generate zooms from content style', async () => {
+      await useZoomStore.getState().generateZooms('entertainment');
       const state = useZoomStore.getState();
       expect(state.isGenerated).toBe(true);
       expect(state.suggestions.length).toBeGreaterThan(0);
     });
 
-    it('should accept and reject individual suggestions', () => {
-      useZoomStore.getState().generateZooms('entertainment');
+    it('should accept and reject individual suggestions', async () => {
+      await useZoomStore.getState().generateZooms('entertainment');
       const first = useZoomStore.getState().suggestions[0];
       useZoomStore.getState().acceptSuggestion(first.id);
       expect(useZoomStore.getState().suggestions.find((s) => s.id === first.id)!.accepted).toBe(true);
@@ -272,8 +272,8 @@ describe('Stage 3: Zooms & Reframe', () => {
       expect(useZoomStore.getState().suggestions.find((s) => s.id === second.id)!.accepted).toBe(false);
     });
 
-    it('should accept/reject all', () => {
-      useZoomStore.getState().generateZooms('entertainment');
+    it('should accept/reject all', async () => {
+      await useZoomStore.getState().generateZooms('entertainment');
       useZoomStore.getState().acceptAll();
       expect(useZoomStore.getState().suggestions.every((s) => s.accepted === true)).toBe(true);
 
@@ -281,15 +281,15 @@ describe('Stage 3: Zooms & Reframe', () => {
       expect(useZoomStore.getState().suggestions.every((s) => s.accepted === false)).toBe(true);
     });
 
-    it('should apply keyframes from accepted suggestions', () => {
-      useZoomStore.getState().generateZooms('entertainment');
+    it('should apply keyframes from accepted suggestions', async () => {
+      await useZoomStore.getState().generateZooms('entertainment');
       useZoomStore.getState().acceptAll();
       useZoomStore.getState().applyKeyframes();
       expect(useZoomStore.getState().keyframes.length).toBe(useZoomStore.getState().suggestions.length);
     });
 
-    it('should reset zoom state', () => {
-      useZoomStore.getState().generateZooms('entertainment');
+    it('should reset zoom state', async () => {
+      await useZoomStore.getState().generateZooms('entertainment');
       useZoomStore.getState().reset();
       expect(useZoomStore.getState().suggestions).toEqual([]);
       expect(useZoomStore.getState().isGenerated).toBe(false);

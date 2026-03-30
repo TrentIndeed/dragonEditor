@@ -5,7 +5,7 @@ import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { usePipelineStore } from '@/stores/pipelineStore';
 import { useChatStore } from '@/stores/chatStore';
-import { runAIReview, getReviewScore } from '@/lib/ai-review';
+import { runAIReviewWithClaude, getReviewScore } from '@/lib/ai-review';
 import { ReviewFinding } from '@/lib/types';
 import { cn, formatTimecode } from '@/lib/utils';
 import { Check, Brain, AlertTriangle, Info, AlertCircle } from 'lucide-react';
@@ -24,12 +24,14 @@ export default function ReviewApproval() {
   const addMessage = useChatStore((s) => s.addMessage);
 
   useEffect(() => {
-    const clips = useTimelineStore.getState().clips;
-    const lines = useTranscriptStore.getState().lines;
-    const duration = useTimelineStore.getState().duration;
-    const f = runAIReview(clips, lines, duration);
-    setFindings(f);
-    setScore(getReviewScore(f));
+    (async () => {
+      const clips = useTimelineStore.getState().clips;
+      const lines = useTranscriptStore.getState().lines;
+      const duration = useTimelineStore.getState().duration;
+      const f = await runAIReviewWithClaude(clips, lines, duration);
+      setFindings(f);
+      setScore(getReviewScore(f));
+    })();
   }, []);
 
   const handleApprove = () => {

@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm test:*)",
+      "Bash(find /c/Users/Trenton/CodeProjects/ -maxdepth 2 -name *.env* -o -name *.env.local -o -name .env.example)",
+      "Bash(grep -r \"oauth\\\\|claude.*gateway\\\\|anthropic\\\\|claude.*cli\\\\|/v1/messages\" /c/Users/Trenton/CodeProjects/operatorDashboard/ --include=*.py --include=*.ts --include=*.js -l)",
+      "Bash(where claude:*)",
+      "Bash(claude --version)",
+      "Read(//c/Users/Trenton/CodeProjects/dragonEditor/$APPDATA/npm/**)",
+      "Read(//c/Users/Trenton/AppData/Roaming/npm/**)",
+      "Bash(npx next:*)",
+      "Bash(npx vitest:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}

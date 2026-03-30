@@ -126,11 +126,12 @@ describe('Stage 5: Captions', () => {
         expect(style.id).toBeTruthy();
         expect(style.name).toBeTruthy();
         expect(style.description).toBeTruthy();
-        expect(['normal', 'bold', 'extrabold']).toContain(style.fontWeight);
-        expect(['sm', 'md', 'lg', 'xl']).toContain(style.fontSize);
-        expect(['bottom', 'center', 'lower-third']).toContain(style.position);
-        expect(typeof style.highlight).toBe('boolean');
+        expect(style.fontWeight).toBeGreaterThanOrEqual(400);
+        expect(style.fontSizePx).toBeGreaterThan(0);
+        expect(style.wordsPerChunk).toBeGreaterThan(0);
+        expect(['center', 'lower-third', 'bottom']).toContain(style.position);
         expect(typeof style.speakerLabel).toBe('boolean');
+        expect(typeof style.allCaps).toBe('boolean');
       }
     });
 
@@ -142,24 +143,24 @@ describe('Stage 5: Captions', () => {
       }
     });
 
-    it('should map entertainment → karaoke', () => {
-      expect(STYLE_TO_CAPTION['entertainment']).toBe('karaoke');
+    it('should map entertainment → hormozi', () => {
+      expect(STYLE_TO_CAPTION['entertainment']).toBe('hormozi');
     });
 
-    it('should map education → subtitle-bar', () => {
-      expect(STYLE_TO_CAPTION['education']).toBe('subtitle-bar');
+    it('should map education → clean', () => {
+      expect(STYLE_TO_CAPTION['education']).toBe('clean');
     });
 
     it('should map podcast → speaker-labeled', () => {
       expect(STYLE_TO_CAPTION['podcast']).toBe('speaker-labeled');
     });
 
-    it('should map high-retention → word-by-word', () => {
-      expect(STYLE_TO_CAPTION['high-retention']).toBe('word-by-word');
+    it('should map high-retention → bounce', () => {
+      expect(STYLE_TO_CAPTION['high-retention']).toBe('bounce');
     });
 
-    it('should map clickbait → bold-pop', () => {
-      expect(STYLE_TO_CAPTION['clickbait']).toBe('bold-pop');
+    it('should map clickbait → hormozi', () => {
+      expect(STYLE_TO_CAPTION['clickbait']).toBe('hormozi');
     });
   });
 
@@ -202,7 +203,7 @@ describe('Stage 5: Captions', () => {
 
     it('should generate timed words for each block', () => {
       const lines = useTranscriptStore.getState().lines;
-      const blocks = generateCaptionsFromTranscript(lines, 'word-by-word');
+      const blocks = generateCaptionsFromTranscript(lines, 'bounce');
 
       for (const block of blocks) {
         expect(block.words.length).toBeGreaterThan(0);
@@ -226,10 +227,10 @@ describe('Stage 5: Captions', () => {
 
     it('should apply the specified style ID to all blocks', () => {
       const lines = useTranscriptStore.getState().lines;
-      const blocks = generateCaptionsFromTranscript(lines, 'subtitle-bar');
+      const blocks = generateCaptionsFromTranscript(lines, 'clean');
 
       for (const block of blocks) {
-        expect(block.styleId).toBe('subtitle-bar');
+        expect(block.styleId).toBe('clean');
       }
     });
 
@@ -300,18 +301,18 @@ describe('Stage 5: Captions', () => {
       const state = useCaptionStore.getState();
 
       expect(state.isGenerated).toBe(true);
-      expect(state.activeStyleId).toBe('karaoke'); // entertainment → karaoke
+      expect(state.activeStyleId).toBe('hormozi'); // entertainment → hormozi
       expect(state.blocks.length).toBeGreaterThan(0);
     });
 
     it('should change caption style and restyle all blocks', () => {
       useCaptionStore.getState().generateCaptions('entertainment');
-      useCaptionStore.getState().setCaptionStyle('subtitle-bar');
+      useCaptionStore.getState().setCaptionStyle('clean');
 
       const state = useCaptionStore.getState();
-      expect(state.activeStyleId).toBe('subtitle-bar');
+      expect(state.activeStyleId).toBe('clean');
       for (const block of state.blocks) {
-        expect(block.styleId).toBe('subtitle-bar');
+        expect(block.styleId).toBe('clean');
       }
     });
 
@@ -323,7 +324,7 @@ describe('Stage 5: Captions', () => {
       const state = useCaptionStore.getState();
 
       expect(state.activeStyleId).toBe('speaker-labeled');
-      expect(state.blocks.length).toBe(countBefore); // same transcript, same count
+      expect(state.blocks.length).toBeGreaterThan(0); // blocks count varies by wordsPerChunk
     });
 
     it('should edit a caption block text', () => {
@@ -380,7 +381,7 @@ describe('Stage 5: Captions', () => {
       // 4. Generate captions
       useCaptionStore.getState().generateCaptions('entertainment');
       expect(useCaptionStore.getState().blocks.length).toBeGreaterThan(0);
-      expect(useCaptionStore.getState().activeStyleId).toBe('karaoke');
+      expect(useCaptionStore.getState().activeStyleId).toBe('hormozi');
 
       // 5. Add caption clips to timeline
       const captionClips = captionBlocksToTimelineClips(useCaptionStore.getState().blocks);

@@ -7,6 +7,9 @@ import { useTimelineStore } from '@/stores/timelineStore';
 import { useMediaStore } from '@/stores/mediaStore';
 import { useCaptionStore } from '@/stores/captionStore';
 import { useZoomStore } from '@/stores/zoomStore';
+import { getZoomAtTime } from '@/lib/zoom-engine';
+import { CAPTION_STYLES } from '@/lib/captions';
+import { CaptionBlock, CaptionStyle } from '@/lib/types';
 import { MonitorPlay } from 'lucide-react';
 
 export default function VideoPreview() {
@@ -68,15 +71,12 @@ export default function VideoPreview() {
     ) || null;
   }, [clips, displayTime]);
 
-  // Active zoom level at current time
-  const activeZoom = useMemo(() => {
-    if (zoomKeyframes.length === 0) return 1;
-    // Find the most recent keyframe before current time
-    const relevant = zoomKeyframes
-      .filter((k) => displayTime >= k.time && displayTime < k.time + 2)
-      .sort((a, b) => b.time - a.time);
-    return relevant.length > 0 ? relevant[0].level : 1;
+  // Dynamic zoom from keyframe interpolation engine
+  const zoomState = useMemo(() => {
+    return getZoomAtTime(zoomKeyframes, displayTime);
   }, [zoomKeyframes, displayTime]);
+
+  const activeZoom = zoomState.scale;
 
   // Load video source when clip changes
   useEffect(() => {
@@ -124,11 +124,14 @@ export default function VideoPreview() {
       <div className="flex-1 flex items-center justify-center bg-bg-deep p-2 overflow-hidden">
         {hasVideo ? (
           <div className="relative max-w-full max-h-full" style={{ aspectRatio: `${aspectRatio.w}/${aspectRatio.h}` }}>
-            {/* Video with zoom transform */}
+            {/* Video with dynamic zoom transform — no CSS transition, engine handles smoothing */}
             <video
               ref={videoRef}
-              className="w-full h-full object-contain rounded-lg transition-transform duration-300"
-              style={{ transform: activeZoom > 1 ? `scale(${activeZoom})` : undefined }}
+              className="w-full h-full object-contain rounded-lg"
+              style={{
+                transform: `scale(${activeZoom.toFixed(4)})`,
+                transformOrigin: 'center center',
+              }}
               playsInline
             />
 
@@ -140,39 +143,15 @@ export default function VideoPreview() {
             )}
 
             {/* TikTok-style caption overlay */}
-            {activeCaption && (
-              <div className="absolute bottom-[15%] left-0 right-0 flex justify-center pointer-events-none">
-                <div className="max-w-[85%] text-center leading-tight">
-                  {activeCaption.words.map((word, i) => {
-                    const wordProgress = (displayTime - word.startTime) / (word.endTime - word.startTime);
-                    const isActive = displayTime >= word.startTime && displayTime < word.endTime;
-                    const isPast = displayTime >= word.endTime;
-                    return (
-                      <span
-                        key={i}
-                        className="inline-block mx-[2px]"
-                        style={{
-                          fontSize: isVertical ? '24px' : '20px',
-                          fontWeight: 900,
-                          color: isActive ? '#FBBF24' : isPast ? '#FFFFFF' : 'rgba(255,255,255,0.5)',
-                          textShadow: '0 2px 8px rgba(0,0,0,0.8), 0 0 20px rgba(0,0,0,0.5)',
-                          transform: isActive ? 'scale(1.15)' : 'scale(1)',
-                          transition: 'transform 0.1s, color 0.1s',
-                          letterSpacing: '-0.02em',
-                        }}
-                      >
-                        {word.text}
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
+            {activeCaption && <CaptionOverlay caption={activeCaption} time={displayTime} isVertical={isVertical} />}
 
-            {/* Zoom indicator */}
-            {activeZoom > 1 && (
-              <div className="absolute top-2 right-2 px-2 py-1 bg-accent-blue/80 rounded text-[10px] font-mono text-white font-medium">
-                {activeZoom}x
+            {/* Zoom indicator with progress bar */}
+            {activeZoom > 1.01 && (
+              <div className="absolute top-2 right-2 flex items-center gap-2 px-2.5 py-1.5 bg-black/60 backdrop-blur-sm rounded-lg">
+                <span className="text-[11px] font-mono text-accent-blue font-bold">{activeZoom.toFixed(2)}x</span>
+                <div className="w-[40px] h-[3px] bg-white/20 rounded-full overflow-hidden">
+                  <div className="h-full bg-accent-blue rounded-full" style={{ width: `${zoomState.progress * 100}%` }} />
+                </div>
               </div>
             )}
           </div>
@@ -208,6 +187,110 @@ export default function VideoPreview() {
       </div>
 
       <TransportControls />
+    </div>
+  );
+}
+
+// ── TikTok Caption Renderer ──
+
+function CaptionOverlay({ caption, time, isVertical }: { caption: CaptionBlock; time: number; isVertical: boolean }) {
+  const style = CAPTION_STYLES[caption.styleId] || CAPTION_STYLES['karaoke'];
+
+  // Scale font size for preview (preview is smaller than 1080px)
+  const scaleFactor = isVertical ? 0.5 : 0.65;
+  const fontSize = Math.round(style.fontSizePx * scaleFactor);
+
+  // Position mapping
+  const positionClass =
+    style.position === 'center' ? 'top-[40%]' :
+    style.position === 'lower-third' ? 'bottom-[18%]' :
+    'bottom-[8%]';
+
+  // Background
+  const hasBg = style.bgStyle !== 'none';
+  const bgStyles: React.CSSProperties = hasBg ? {
+    background: style.bgColor,
+    borderRadius: style.bgStyle === 'frost' ? '12px' : '8px',
+    padding: `${fontSize * 0.25}px ${fontSize * 0.5}px`,
+    backdropFilter: style.bgStyle === 'frost' ? 'blur(8px)' : undefined,
+  } : {};
+
+  return (
+    <div className={`absolute ${positionClass} left-0 right-0 flex justify-center pointer-events-none`}>
+      <div className="max-w-[90%] text-center leading-[1.3]" style={bgStyles}>
+        {/* Speaker label */}
+        {style.speakerLabel && caption.speaker && (
+          <div style={{
+            fontSize: fontSize * 0.55,
+            fontWeight: 600,
+            color: style.activeColor,
+            marginBottom: fontSize * 0.15,
+            letterSpacing: '0.05em',
+          }}>
+            {caption.speaker}
+          </div>
+        )}
+
+        {/* Words */}
+        {caption.words.map((word, i) => {
+          const isActive = time >= word.startTime && time < word.endTime;
+          const isPast = time >= word.endTime;
+          const isFuture = time < word.startTime;
+
+          // Determine word color
+          let color: string;
+          if (isActive) color = word.emphasis ? style.activeColor : style.activeColor;
+          else if (isPast) color = style.pastColor;
+          else color = style.futureColor;
+
+          // Emphasis words get the active color even when past
+          if (isPast && word.emphasis) color = style.activeColor;
+
+          // Animation transforms
+          let transform = 'scale(1)';
+          let opacity = 1;
+
+          if (style.animation === 'pop' && isActive) {
+            transform = `scale(${style.activeScale})`;
+          } else if (style.animation === 'sweep' && isActive) {
+            transform = `scale(${style.activeScale})`;
+          } else if (style.animation === 'bounce' && isActive) {
+            transform = `scale(${style.activeScale}) translateY(-2px)`;
+          } else if (style.animation === 'fade' && isFuture) {
+            opacity = 0.5;
+          }
+
+          // For bounce style, words that haven't appeared yet are invisible
+          if (style.animation === 'bounce' && isFuture) {
+            opacity = 0;
+            transform = 'scale(0.7) translateY(8px)';
+          }
+
+          const displayText = style.allCaps ? word.text.toUpperCase() : word.text;
+
+          return (
+            <span
+              key={i}
+              style={{
+                display: 'inline-block',
+                marginRight: fontSize * 0.15,
+                fontSize,
+                fontWeight: style.fontWeight,
+                fontFamily: "'Inter', system-ui, sans-serif",
+                color,
+                opacity,
+                transform,
+                WebkitTextStroke: style.strokePx > 0 ? `${style.strokePx * scaleFactor}px black` : undefined,
+                textShadow: style.shadowStyle,
+                transition: `transform 0.08s ease-out, color 0.06s, opacity 0.1s`,
+                letterSpacing: '-0.02em',
+              }}
+            >
+              {displayText}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

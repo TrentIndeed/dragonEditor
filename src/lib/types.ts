@@ -95,26 +95,37 @@ export interface TrimSuggestion {
 
 export interface ZoomKeyframe {
   id: string;
-  time: number;
-  level: number;
-  curveType: 'linear' | 'ease-in' | 'ease-out' | 'snap';
+  time: number;       // when the zoom starts
+  duration: number;   // how long to reach target level
+  holdDuration: number; // how long to hold at target level
+  level: number;      // target zoom level (1.0 = no zoom)
+  curveType: 'linear' | 'ease-in' | 'ease-out' | 'ease-in-out' | 'snap';
 }
 
 // ── Caption types ──
 
-export type CaptionStyleId = 'karaoke' | 'subtitle-bar' | 'speaker-labeled' | 'word-by-word' | 'bold-pop';
+export type CaptionStyleId = 'hormozi' | 'karaoke' | 'clean' | 'speaker-labeled' | 'bounce';
 
 export interface CaptionStyle {
   id: CaptionStyleId;
   name: string;
   description: string;
-  fontWeight: 'normal' | 'bold' | 'extrabold';
-  fontSize: 'sm' | 'md' | 'lg' | 'xl';
-  position: 'bottom' | 'center' | 'lower-third';
-  animation: 'none' | 'fade' | 'pop' | 'typewriter' | 'word-highlight';
-  highlight: boolean;
+  wordsPerChunk: number;          // how many words shown at once
+  fontSizePx: number;             // font size in px (for 1080-wide frame)
+  fontWeight: number;             // 400-900
+  position: 'center' | 'lower-third' | 'bottom';
+  textColor: string;              // default word color
+  activeColor: string;            // color of the currently-spoken word
+  pastColor: string;              // color of already-spoken words
+  futureColor: string;            // color of upcoming words
+  strokePx: number;               // black outline width
+  shadowStyle: string;            // text-shadow CSS
+  bgStyle: 'none' | 'box' | 'frost';
+  bgColor: string;                // background box color
+  animation: 'pop' | 'sweep' | 'fade' | 'bounce' | 'none';
+  activeScale: number;            // scale of active word (1.0 = no scale)
+  allCaps: boolean;
   speakerLabel: boolean;
-  bgStyle: 'none' | 'box' | 'gradient';
 }
 
 export interface CaptionBlock {

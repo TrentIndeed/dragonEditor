@@ -133,8 +133,9 @@ export default function AIChatPanel() {
     if (awaiting('color')) return [];
     if (awaiting('sfx')) return [{ label: 'More subtle', icon: Volume2, action: () => {} }];
     if (awaiting('caption')) return [
+      { label: 'Hormozi', icon: Captions, action: () => useCaptionStore.getState().regenerateWithStyle('hormozi') },
       { label: 'Karaoke', icon: Captions, action: () => useCaptionStore.getState().regenerateWithStyle('karaoke') },
-      { label: 'Subtitles', icon: Captions, action: () => useCaptionStore.getState().regenerateWithStyle('subtitle-bar') },
+      { label: 'Clean', icon: Captions, action: () => useCaptionStore.getState().regenerateWithStyle('clean') },
     ];
     if (awaiting('broll')) return [];
     if (awaiting('zoom')) return [

@@ -6,7 +6,7 @@ import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { useHistoryStore } from '@/stores/historyStore';
 import { useChatStore } from '@/stores/chatStore';
-import { generateTrimSuggestions } from '@/lib/trim';
+import { generateTrimSuggestionsAI } from '@/lib/trim';
 import { TrimSuggestion } from '@/lib/types';
 import { formatTimecode, cn } from '@/lib/utils';
 import { Check, X, Scissors, RotateCcw } from 'lucide-react';
@@ -21,23 +21,25 @@ export default function TrimApproval() {
   const pushSnapshot = useHistoryStore((s) => s.pushSnapshot);
   const addMessage = useChatStore((s) => s.addMessage);
 
-  // Generate suggestions and auto-apply all cuts on mount
+  // Generate suggestions via AI and auto-apply all cuts on mount
   useEffect(() => {
     if (generated) return;
-    const lines = useTranscriptStore.getState().lines;
-    const clips = useTimelineStore.getState().clips;
-    const sug = generateTrimSuggestions(lines, clips);
-
-    // Auto-apply all suggestions immediately
-    for (const s of sug) {
-      if (s.transcriptLineIds.length > 0) {
-        useTranscriptStore.getState().deleteLines(s.transcriptLineIds);
-      }
-      useTimelineStore.getState().markCutRegion(s.startTime, s.endTime);
-    }
-
-    setSuggestions(sug.map((s) => ({ ...s, accepted: true })));
     setGenerated(true);
+
+    (async () => {
+      const lines = useTranscriptStore.getState().lines;
+      const clips = useTimelineStore.getState().clips;
+      const sug = await generateTrimSuggestionsAI(lines, clips);
+
+      for (const s of sug) {
+        if (s.transcriptLineIds.length > 0) {
+          useTranscriptStore.getState().deleteLines(s.transcriptLineIds);
+        }
+        useTimelineStore.getState().markCutRegion(s.startTime, s.endTime);
+      }
+
+      setSuggestions(sug.map((s) => ({ ...s, accepted: true })));
+    })();
   }, [generated]);
 
   const acceptSuggestion = (id: string) => {

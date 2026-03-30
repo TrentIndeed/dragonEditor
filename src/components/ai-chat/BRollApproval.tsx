@@ -6,7 +6,7 @@ import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { usePipelineStore } from '@/stores/pipelineStore';
 import { useChatStore } from '@/stores/chatStore';
-import { generateBRollSuggestions, brollSuggestionsToTimelineClips } from '@/lib/broll';
+import { generateBRollSuggestionsAI, brollSuggestionsToTimelineClips } from '@/lib/broll';
 import { BRollSuggestion } from '@/lib/types';
 import { cn, formatTimecode } from '@/lib/utils';
 import { Check, X, Layers, PictureInPicture, Maximize2, Pause } from 'lucide-react';
@@ -26,18 +26,16 @@ export default function BRollApproval() {
   const appliedRef = useRef(false);
 
   useEffect(() => {
-    if (config && suggestions.length === 0) {
-      const lines = useTranscriptStore.getState().lines;
-      const sug = generateBRollSuggestions(lines, config.style);
-      // Auto-accept all and apply to timeline
-      const accepted = sug.map((s) => ({ ...s, accepted: true as const }));
-      setSuggestions(accepted as any);
-
-      if (!appliedRef.current) {
-        appliedRef.current = true;
+    if (config && suggestions.length === 0 && !appliedRef.current) {
+      appliedRef.current = true;
+      (async () => {
+        const lines = useTranscriptStore.getState().lines;
+        const sug = await generateBRollSuggestionsAI(lines, config.style);
+        const accepted = sug.map((s) => ({ ...s, accepted: true as const }));
+        setSuggestions(accepted as any);
         const clips = brollSuggestionsToTimelineClips(accepted as any);
         clips.forEach((c) => addClip(c));
-      }
+      })();
     }
   }, [config, suggestions.length, addClip]);
 

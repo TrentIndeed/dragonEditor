@@ -6,7 +6,7 @@ import { useTranscriptStore } from '@/stores/transcriptStore';
 import { useTimelineStore } from '@/stores/timelineStore';
 import { usePipelineStore } from '@/stores/pipelineStore';
 import { useChatStore } from '@/stores/chatStore';
-import { generateSFXPlacements, sfxPlacementsToTimelineClips, SFX_LIBRARY } from '@/lib/sfx';
+import { generateSFXPlacementsAI, sfxPlacementsToTimelineClips, SFX_LIBRARY } from '@/lib/sfx';
 import { SFXPlacement } from '@/lib/types';
 import { cn, formatTimecode } from '@/lib/utils';
 import { Check, X, Volume2, CheckCheck, XCircle, Music } from 'lucide-react';
@@ -23,20 +23,18 @@ export default function SFXApproval() {
   const appliedRef = useRef(false);
 
   useEffect(() => {
-    if (!generated && config) {
-      const lines = useTranscriptStore.getState().lines;
-      const clips = useTimelineStore.getState().clips;
-      const result = generateSFXPlacements(lines, clips, config.style);
-      // Auto-accept all and apply to timeline
-      const accepted = result.map((p) => ({ ...p, accepted: true as const }));
-      setPlacements(accepted as any);
+    if (!generated && config && !appliedRef.current) {
       setGenerated(true);
-
-      if (!appliedRef.current) {
-        appliedRef.current = true;
+      appliedRef.current = true;
+      (async () => {
+        const lines = useTranscriptStore.getState().lines;
+        const clips = useTimelineStore.getState().clips;
+        const result = await generateSFXPlacementsAI(lines, clips, config.style);
+        const accepted = result.map((p) => ({ ...p, accepted: true as const }));
+        setPlacements(accepted as any);
         const sfxClips = sfxPlacementsToTimelineClips(accepted as any);
         for (const clip of sfxClips) addClip(clip);
-      }
+      })();
     }
   }, [generated, config, addClip]);
 

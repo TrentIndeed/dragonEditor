@@ -11,7 +11,7 @@ import { CaptionStyleId } from '@/lib/types';
 import { cn, formatTimecode } from '@/lib/utils';
 import { Check, Captions, RefreshCw, Type, Trash2 } from 'lucide-react';
 
-const STYLE_LIST: CaptionStyleId[] = ['karaoke', 'subtitle-bar', 'speaker-labeled', 'word-by-word', 'bold-pop'];
+const STYLE_LIST: CaptionStyleId[] = ['hormozi', 'karaoke', 'clean', 'speaker-labeled', 'bounce'];
 
 export default function CaptionApproval() {
   const config = useProjectStore((s) => s.config);

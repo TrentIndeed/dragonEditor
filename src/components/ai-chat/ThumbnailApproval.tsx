@@ -5,7 +5,7 @@ import { useProjectStore } from '@/stores/projectStore';
 import { useTranscriptStore } from '@/stores/transcriptStore';
 import { usePipelineStore } from '@/stores/pipelineStore';
 import { useChatStore } from '@/stores/chatStore';
-import { generateThumbnailVariants, selectThumbnail, getSelectedThumbnail } from '@/lib/thumbnail';
+import { generateThumbnailVariantsAI, generateThumbnailVariants, selectThumbnail, getSelectedThumbnail } from '@/lib/thumbnail';
 import { ThumbnailVariant } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Check, ImageIcon, RefreshCw } from 'lucide-react';
@@ -19,9 +19,12 @@ export default function ThumbnailApproval() {
 
   useEffect(() => {
     if (config && variants.length === 0) {
-      const lines = useTranscriptStore.getState().lines;
-      const transcript = lines.filter((l) => !l.deleted).map((l) => l.text).join('. ');
-      setVariants(generateThumbnailVariants(config.name, config.style, transcript));
+      (async () => {
+        const lines = useTranscriptStore.getState().lines;
+        const transcript = lines.filter((l) => !l.deleted).map((l) => l.text).join('. ');
+        const v = await generateThumbnailVariantsAI(config.name, config.style, transcript);
+        setVariants(v);
+      })();
     }
   }, [config, variants.length]);
 
