@@ -30,6 +30,7 @@ import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
 import { RightPanel } from "./right-panel";
 import { useAutoSave } from "./hooks/use-auto-save";
+import { useKeyboardShortcuts } from "./hooks/use-keyboard-shortcuts";
 import { useLinkedAudio } from "./hooks/use-linked-audio";
 import { useSnap } from "./hooks/use-snap";
 import { useRippleDelete } from "./hooks/use-ripple-delete";
@@ -102,6 +103,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
   useLinkedAudio();
   useSnap();
   useRippleDelete();
+  useKeyboardShortcuts();
 
   const { setCompactFonts, setFonts } = useDataState();
   // useEffect(() => {
