@@ -1,13 +1,12 @@
 import { Geist_Mono, Geist } from "next/font/google";
 import { Toaster } from "@/components/ui/sonner";
-import { baseUrl, createMetadata } from "@/utils/metadata";
 import {
   StoreInitializer,
   BackgroundUploadRunner,
 } from "@/components/store-initializer";
 import { QueryProvider } from "@/components/query-provider";
-import { Analytics } from "@vercel/analytics/react";
 import { Outfit } from "next/font/google";
+import type { Metadata } from "next";
 
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -29,14 +28,11 @@ const outfit = Outfit({
   weight: ["300", "400", "500", "600", "700"],
 });
 
-export const metadata = createMetadata({
-  title: {
-    template: "%s | Combo",
-    default: "Combo",
-  },
-  description: "AI Video generator for the next gen web.",
-  metadataBase: baseUrl,
-});
+export const metadata: Metadata = {
+  title: "Dragon Editor — AI Video Editor",
+  description: "AI-powered video editing pipeline",
+  icons: { icon: "/favicon.ico" },
+};
 
 export default async function RootLayout({
   children,
@@ -50,7 +46,7 @@ export default async function RootLayout({
       >
         <ThemeProvider
           attribute="class"
-          defaultTheme="light"
+          defaultTheme="dark"
           enableSystem
           disableTransitionOnChange
         >
@@ -60,7 +56,6 @@ export default async function RootLayout({
             <BackgroundUploadRunner />
             <Toaster />
           </QueryProvider>
-          <Analytics />
         </ThemeProvider>
       </body>
     </html>

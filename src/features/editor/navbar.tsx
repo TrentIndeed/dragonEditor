@@ -18,7 +18,8 @@ import {
   FileText,
   FileCode,
   Captions as CaptionsIcon,
-  FolderOpen
+  FolderOpen,
+  Sparkles
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
@@ -96,8 +97,9 @@ export default function Navbar({
       <DownloadProgressModal />
 
       <div className="flex items-center gap-2">
-        <div className="pointer-events-auto flex h-11 w-11 items-center justify-center rounded-md invert dark:invert-0">
-          <LogoIcons.scenify />
+        <div className="pointer-events-auto flex h-11 items-center justify-center rounded-md px-2 gap-1.5">
+          <Sparkles className="w-4 h-4 text-primary" />
+          <span className="text-sm font-semibold hidden md:block">Dragon</span>
         </div>
 
         <div className=" pointer-events-auto flex h-10 items-center px-1.5">
@@ -144,12 +146,6 @@ export default function Navbar({
           >
             <Keyboard className="size-5" />
           </Button>
-          <Link href="https://discord.gg/Jmxsd5f2jp" target="_blank">
-            <Button className="h-8 rounded-lg" variant={"outline"}>
-              <LogoIcons.discord className="w-6 h-6" />
-              <span className="hidden md:block">Join Us</span>
-            </Button>
-          </Link>
           <ModeToggle />
 
           {/* <Button

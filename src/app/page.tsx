@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import Editor from "@/features/editor";
 import { ModeSelect } from "@/features/editor/mode-select";
-import { InvitationModal } from "@/components/invitation-modal";
 
 const PROJECT_KEY = "dragon-editor:project-config";
 
@@ -10,7 +9,6 @@ export default function Home() {
   const [projectConfig, setProjectConfig] = useState<any>(null);
   const [loaded, setLoaded] = useState(false);
 
-  // Check localStorage for existing project
   useEffect(() => {
     try {
       const saved = localStorage.getItem(PROJECT_KEY);
@@ -32,10 +30,5 @@ export default function Home() {
     return <ModeSelect onStart={handleStart} />;
   }
 
-  return (
-    <>
-      <Editor />
-      <InvitationModal />
-    </>
-  );
+  return <Editor />;
 }
