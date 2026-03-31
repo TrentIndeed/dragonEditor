@@ -71,13 +71,10 @@ const SceneContainer = ({
   );
 };
 
-const Sidebar = () => {
+const ContentPanel = () => {
   return (
-    <div className="bg-card w-full flex flex-row flex-none border-r border-border/80 h-[calc(100vh-52px)]">
-      <MenuList />
-      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        <ControlItem />
-      </div>
+    <div className="bg-card w-full flex flex-col h-full border-r border-border/80 overflow-hidden">
+      <ControlItem />
     </div>
   );
 };
@@ -189,46 +186,59 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
         setProjectName={setProjectName}
       />
 
-      <div className="flex flex-1">
-        {isLargeScreen ? (
-          <ResizablePanelGroup direction="horizontal" className="h-full w-full">
-            <ResizablePanel
-              defaultSize={30}
-              minSize={20}
-              maxSize={40}
-              className="max-w-7xl relative bg-card min-w-0 overflow-visible!"
-            >
-              <Sidebar />
-              <FloatingControl />
-            </ResizablePanel>
+      <div className="flex flex-1 min-h-0">
+        {/* Vertical icon bar — full height */}
+        {isLargeScreen && <MenuList />}
 
-            <ResizableHandle className="bg-border/90" />
+        {/* Main content area */}
+        <div className="flex flex-1 flex-col min-w-0 min-h-0">
+          {/* Top section: content panel + scene */}
+          <div className="flex flex-1 min-h-0">
+            {isLargeScreen ? (
+              <ResizablePanelGroup direction="horizontal" className="h-full w-full">
+                <ResizablePanel
+                  defaultSize={25}
+                  minSize={15}
+                  maxSize={35}
+                  className="max-w-xl relative bg-card min-w-0 overflow-visible!"
+                >
+                  <ContentPanel />
+                  <FloatingControl />
+                </ResizablePanel>
 
-            <ResizablePanel
-              defaultSize={70}
-              minSize={60}
-              className="min-w-0 min-h-0"
-            >
-              <SceneContainer
-                sceneRef={sceneRef}
-                playerRef={playerRef}
-                stateManager={stateManager}
-                trackItem={trackItem}
-                loaded={loaded}
-                isLargeScreen={isLargeScreen}
-              />
-            </ResizablePanel>
-          </ResizablePanelGroup>
-        ) : (
-          <SceneContainer
-            sceneRef={sceneRef}
-            playerRef={playerRef}
-            stateManager={stateManager}
-            trackItem={trackItem}
-            loaded={loaded}
-            isLargeScreen={isLargeScreen}
-          />
-        )}
+                <ResizableHandle className="bg-border/90" />
+
+                <ResizablePanel
+                  defaultSize={75}
+                  minSize={50}
+                  className="min-w-0 min-h-0"
+                >
+                  <div className="relative flex h-full w-full flex-col bg-background">
+                    <div className="flex-1 relative overflow-hidden w-full h-full">
+                      <CropModal />
+                      <Scene ref={sceneRef} stateManager={stateManager} />
+                    </div>
+                  </div>
+                </ResizablePanel>
+              </ResizablePanelGroup>
+            ) : (
+              <div className="relative flex h-full w-full flex-col bg-background">
+                <div className="flex-1 relative overflow-hidden w-full h-full">
+                  <CropModal />
+                  <Scene ref={sceneRef} stateManager={stateManager} />
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Timeline — full width under content panels */}
+          <div className="w-full">
+            {playerRef && <Timeline stateManager={stateManager} />}
+          </div>
+
+          {!isLargeScreen && !trackItem && loaded && <MenuListHorizontal />}
+          {!isLargeScreen && trackItem && <ControlItemHorizontal />}
+        </div>
       </div>
     </div>
   );
