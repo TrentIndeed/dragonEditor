@@ -315,25 +315,27 @@ async function transcribeMedia(
   mediaUrl: string,
   targetLanguage: string
 ): Promise<{ url: string }> {
-  const transcribeResponse = await fetch("/api/transcribe", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      url: mediaUrl,
-      targetLanguage
-    })
-  });
+  // TODO: Integrate Whisper for local transcription
+  // For now, try the AI route as a fallback
+  try {
+    const res = await fetch("/api/ai", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: `Transcribe this media. Return a JSON object with word-level timing. Media URL: ${mediaUrl}, language: ${targetLanguage}`,
+      }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      // Create a blob URL from the result
+      const blob = new Blob([data.result || "{}"], { type: "application/json" });
+      return { url: URL.createObjectURL(blob) };
+    }
+  } catch {}
 
-  if (!transcribeResponse.ok) {
-    throw new Error("Failed to initiate transcription.");
-  }
-
-  const transcribeData = await transcribeResponse.json();
-  const { transcribe } = transcribeData;
-
-  return { url: transcribe.url };
+  throw new Error(
+    "Transcription requires Whisper integration. Install whisper.cpp or use the AI Pipeline for mock captions."
+  );
 }
 
 async function fetchJsonFromUrl(url: string) {

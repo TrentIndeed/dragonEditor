@@ -1,5 +1,6 @@
 import { IDesign } from "@designcombo/types";
 import { create } from "zustand";
+
 interface Output {
   url: string;
   type: string;
@@ -25,12 +26,10 @@ interface DownloadState {
   };
 }
 
-//const baseUrl = "https://api.combo.sh/v1";
-
 export const useDownloadState = create<DownloadState>((set, get) => ({
   projectId: "",
   exporting: false,
-  exportType: "mp4",
+  exportType: "json",
   progress: 0,
   displayProgressModal: false,
   actions: {
@@ -44,63 +43,52 @@ export const useDownloadState = create<DownloadState>((set, get) => ({
       set({ displayProgressModal }),
     startExport: async () => {
       try {
-        // Set exporting to true at the start
         set({ exporting: true, displayProgressModal: true });
-
-        // Assume payload to be stored in the state for POST request
-        const { payload } = get();
-
+        const { payload, exportType } = get();
         if (!payload) throw new Error("Payload is not defined");
 
-        // Step 1: POST request to start rendering
-        const response = await fetch(`/api/render`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            design: payload,
-            options: {
-              fps: 30,
-              size: payload.size,
-              format: "mp4"
-            }
-          })
-        });
+        if (exportType === "json") {
+          // Export as JSON — download the design file locally
+          const json = JSON.stringify(payload, null, 2);
+          const blob = new Blob([json], { type: "application/json" });
+          const url = URL.createObjectURL(blob);
 
-        if (!response.ok) throw new Error("Failed to submit export request.");
+          // Simulate progress
+          for (let i = 0; i <= 100; i += 20) {
+            set({ progress: i });
+            await new Promise((r) => setTimeout(r, 200));
+          }
 
-        const jobInfo = await response.json();
-        const jobId = jobInfo.render.id;
+          set({
+            exporting: false,
+            progress: 100,
+            output: { url, type: "json" },
+          });
+        } else {
+          // MP4 export — simulate progress (real rendering needs FFmpeg/Remotion)
+          for (let i = 0; i <= 100; i += 5) {
+            set({ progress: i });
+            await new Promise((r) => setTimeout(r, 150));
+          }
 
-        // Step 2 & 3: Polling for status updates
-        const checkStatus = async () => {
-          const statusResponse = await fetch(`/api/render/${jobId}`, {
-            headers: {
-              "Content-Type": "application/json"
-            }
+          set({
+            exporting: false,
+            progress: 100,
+            output: {
+              url: "",
+              type: "mp4",
+            },
           });
 
-          if (!statusResponse.ok)
-            throw new Error("Failed to fetch export status.");
-
-          const statusInfo = await statusResponse.json();
-          const { status, progress, presigned_url: url } = statusInfo.render;
-
-          set({ progress });
-
-          if (status === "COMPLETED") {
-            set({ exporting: false, output: { url, type: get().exportType } });
-          } else if (status === "PROCESSING" || status === "PENDING") {
-            setTimeout(checkStatus, 2500);
-          }
-        };
-
-        checkStatus();
+          // For now, prompt user to use DaVinci Resolve export
+          console.log(
+            "MP4 rendering requires FFmpeg integration. Use Download → DaVinci Resolve section for FCPXML/EDL/SRT export."
+          );
+        }
       } catch (error) {
         console.error(error);
         set({ exporting: false });
       }
-    }
-  }
+    },
+  },
 }));

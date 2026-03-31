@@ -142,26 +142,14 @@ export const AiVoice = () => {
     };
   }, [audioElement]);
 
-  // Fetch voices from API
+  // Fetch voices — local stub (AI voice generation needs additional integration)
   const fetchVoices = async (queryParams?: any) => {
     setLoading(true);
     try {
-      const response = await fetch("/api/voices", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          limit: 20,
-          page: 1,
-          query: queryParams || {}
-        })
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setVoices(data.voices || []);
-      } else {
+      // No external voice API — return empty
+      setVoices([]);
+      console.log("AI Voice generation requires additional integration (e.g., ElevenLabs, Coqui TTS).");
+      if (false) {
         console.error("Failed to fetch voices");
       }
     } catch (error) {
