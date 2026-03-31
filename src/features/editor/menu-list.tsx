@@ -78,6 +78,12 @@ const MENU_ITEMS = [
     icon: Icons.sparkles,
     label: "AI Pipeline",
     ariaLabel: "AI video editing pipeline"
+  },
+  {
+    id: "ai-chat",
+    icon: Icons.messages,
+    label: "AI Chat",
+    ariaLabel: "Chat with AI assistant"
   }
 ] as const;
 

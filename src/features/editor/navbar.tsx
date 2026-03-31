@@ -13,7 +13,12 @@ import {
   Download,
   Keyboard,
   ProportionsIcon,
-  ShareIcon
+  ShareIcon,
+  Save,
+  FileText,
+  FileCode,
+  Captions as CaptionsIcon,
+  FolderOpen
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
@@ -236,10 +241,72 @@ const DownloadPopover = ({ stateManager }: { stateManager: StateManager }) => {
             Export
           </Button>
         </div>
+
+        {/* DaVinci Resolve exports */}
+        <div className="border-t border-border pt-3">
+          <Label className="text-xs text-muted-foreground">DaVinci Resolve</Label>
+          <div className="flex flex-col gap-1 mt-2">
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 h-7 text-xs"
+              onClick={() => { handleDaVinciExport("fcpxml"); setOpen(false); }}>
+              <FileCode className="w-3.5 h-3.5" /> FCPXML (Timeline)
+            </Button>
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 h-7 text-xs"
+              onClick={() => { handleDaVinciExport("edl"); setOpen(false); }}>
+              <FileText className="w-3.5 h-3.5" /> EDL (Cuts)
+            </Button>
+            <Button variant="ghost" size="sm" className="w-full justify-start gap-2 h-7 text-xs"
+              onClick={() => { handleDaVinciExport("srt"); setOpen(false); }}>
+              <CaptionsIcon className="w-3.5 h-3.5" /> SRT (Subtitles)
+            </Button>
+          </div>
+        </div>
       </PopoverContent>
     </Popover>
   );
 };
+
+/** Export to DaVinci Resolve formats using Dragon export utilities */
+function handleDaVinciExport(format: "edl" | "fcpxml" | "srt") {
+  // Dynamic import to avoid loading at startup
+  import("@/dragon/export-edl").then(({ downloadEDL }) => {
+    if (format === "edl") {
+      const useStoreModule = require("@/features/editor/store/use-store");
+      const state = useStoreModule.default.getState();
+      const clips = Object.values(state.trackItemsMap || {}).map((item: any) => ({
+        id: item.id, trackType: item.type || "video", name: item.details?.src || item.id,
+        startTime: (item.display?.from || 0) / 1000, duration: ((item.display?.to || 0) - (item.display?.from || 0)) / 1000,
+        sourceOffset: 0, color: "#6B80F0",
+      }));
+      downloadEDL(clips, "Dragon Editor Export", 30);
+    }
+  });
+
+  if (format === "fcpxml") {
+    import("@/dragon/export-fcpxml").then(({ downloadFCPXML }) => {
+      const useStoreModule = require("@/features/editor/store/use-store");
+      const state = useStoreModule.default.getState();
+      const clips = Object.values(state.trackItemsMap || {}).map((item: any) => ({
+        id: item.id, trackType: item.type || "video", name: item.details?.src || item.id,
+        startTime: (item.display?.from || 0) / 1000, duration: ((item.display?.to || 0) - (item.display?.from || 0)) / 1000,
+        sourceOffset: 0, color: "#6B80F0",
+      }));
+      downloadFCPXML({ title: "Dragon Editor Export", fps: 30, width: 1080, height: 1920, duration: (state.duration || 30000) / 1000, clips });
+    });
+  }
+
+  if (format === "srt") {
+    import("@/dragon/export-srt").then(({ downloadSRT }) => {
+      const useStoreModule = require("@/features/editor/store/use-store");
+      const state = useStoreModule.default.getState();
+      const captionItems = Object.values(state.trackItemsMap || {}).filter((item: any) => item.type === "caption");
+      const lines = captionItems.map((item: any, i: number) => ({
+        id: `line-${i}`, startTime: (item.display?.from || 0) / 1000, endTime: (item.display?.to || 0) / 1000,
+        text: item.details?.text || "", deleted: false, edited: false, isFillerWord: false,
+      }));
+      downloadSRT(lines, "Dragon Editor Export");
+    });
+  }
+}
 
 interface ResizeOptionProps {
   label: string;

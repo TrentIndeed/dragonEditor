@@ -28,6 +28,7 @@ import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { ITrackItem } from "@designcombo/types";
 import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
+import { useAutoSave } from "./hooks/use-auto-save";
 import { design } from "./mock";
 import { Separator } from "@/components/ui/separator";
 
@@ -97,6 +98,7 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
   const isLargeScreen = useIsLargeScreen();
 
   useTimelineEvents();
+  useAutoSave();
 
   const { setCompactFonts, setFonts } = useDataState();
   // useEffect(() => {

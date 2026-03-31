@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { TimelineContextMenu } from "./context-menu";
 import Header from "./header";
 import Ruler from "./ruler";
 import { timeMsToUnits, unitsToTimeMs } from "@designcombo/timeline";
@@ -254,6 +255,7 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
   }, [scale]);
 
   return (
+    <TimelineContextMenu>
     <div
       ref={timelineContainerRef}
       id="timeline-container"
@@ -293,6 +295,7 @@ const Timeline = ({ stateManager }: { stateManager: StateManager }) => {
         </div>
       </div>
     </div>
+    </TimelineContextMenu>
   );
 };
 

@@ -12,6 +12,7 @@ import { Uploads } from "./uploads";
 import { AiVoice } from "./ai-voice";
 import { SFX } from "./sfx";
 import { AIPipeline } from "./ai-pipeline";
+import { AIChat } from "./ai-chat";
 
 const ActiveMenuItem = () => {
   const { activeMenuItem } = useLayoutStore();
@@ -60,6 +61,10 @@ const ActiveMenuItem = () => {
 
   if (activeMenuItem === "ai-pipeline") {
     return <AIPipeline />;
+  }
+
+  if (activeMenuItem === "ai-chat") {
+    return <AIChat />;
   }
 
   return null;
