@@ -12,14 +12,37 @@ import {
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect } from "react";
 import useMediaStore, { type LocalMedia } from "../store/use-media-store";
+import { storeMediaFile, getMediaFile } from "@/dragon/media-db";
 import Draggable from "@/components/shared/draggable";
 import { cn } from "@/lib/utils";
 
 export const Uploads = () => {
   const { items: media, addItem, removeItem, hasItem } = useMediaStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const restoredRef = useRef(false);
+
+  // Restore blob URLs from IndexedDB on mount
+  useEffect(() => {
+    if (restoredRef.current) return;
+    restoredRef.current = true;
+
+    (async () => {
+      for (const item of media) {
+        if (item.url && item.url.length > 0) continue; // already has URL
+        const stored = await getMediaFile(item.id);
+        if (stored) {
+          // Update the item's URL in the store
+          useMediaStore.setState((s) => ({
+            items: s.items.map((m) =>
+              m.id === item.id ? { ...m, url: stored.url } : m
+            ),
+          }));
+        }
+      }
+    })();
+  }, [media]);
 
   const handleFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
@@ -63,15 +86,18 @@ export const Uploads = () => {
             item.thumbnailUrl = canvas.toDataURL("image/jpeg", 0.85);
           }
           addItem(item);
+          storeMediaFile(item.id, file, file.name);
           video.src = "";
         };
-        video.onerror = () => addItem(item);
+        video.onerror = () => { addItem(item); storeMediaFile(item.id, file, file.name); };
         video.src = url;
       } else if (type === "image") {
         item.thumbnailUrl = url;
         addItem(item);
+        storeMediaFile(item.id, file, file.name);
       } else {
         addItem(item);
+        storeMediaFile(item.id, file, file.name);
       }
     }
   }, [addItem, hasItem]);
