@@ -28,6 +28,7 @@ import { useIsLargeScreen } from "@/hooks/use-media-query";
 import { ITrackItem } from "@designcombo/types";
 import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
+import { RightPanel } from "./right-panel";
 import { useAutoSave } from "./hooks/use-auto-save";
 import { useLinkedAudio } from "./hooks/use-linked-audio";
 import { useSnap } from "./hooks/use-snap";
@@ -209,8 +210,8 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
                 <ResizableHandle className="bg-border/90" />
 
                 <ResizablePanel
-                  defaultSize={75}
-                  minSize={50}
+                  defaultSize={55}
+                  minSize={35}
                   className="min-w-0 min-h-0"
                 >
                   <div className="relative flex h-full w-full flex-col bg-background">
@@ -219,6 +220,17 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
                       <Scene ref={sceneRef} stateManager={stateManager} />
                     </div>
                   </div>
+                </ResizablePanel>
+
+                <ResizableHandle className="bg-border/90" />
+
+                <ResizablePanel
+                  defaultSize={20}
+                  minSize={15}
+                  maxSize={30}
+                  className="min-w-0 min-h-0 hidden lg:block"
+                >
+                  <RightPanel />
                 </ResizablePanel>
               </ResizablePanelGroup>
             ) : (

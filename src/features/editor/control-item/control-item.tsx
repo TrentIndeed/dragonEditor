@@ -67,18 +67,7 @@ export const ControlItem = () => {
   }, [activeIds, trackItemsMap, transitionsMap, setLayoutTrackItem]);
 
   if (!trackItem) {
-    return (
-      <div className="w-full flex-1 flex flex-col h-full">
-        {/* Menu content (media, pipeline, text, etc.) */}
-        <div className="flex-1 overflow-hidden">
-          <MenuItem />
-        </div>
-        {/* AI Chat at bottom — always visible when no item selected */}
-        <div className="h-[200px] shrink-0 border-t border-border">
-          <EditorChat />
-        </div>
-      </div>
-    );
+    return <MenuItem />;
   }
 
   return (
