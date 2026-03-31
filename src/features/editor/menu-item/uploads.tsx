@@ -9,7 +9,6 @@ import {
   Upload,
   UploadIcon,
   X,
-  Plus
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
@@ -27,10 +26,16 @@ interface LocalMedia {
 export const Uploads = () => {
   const [media, setMedia] = useState<LocalMedia[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const processingRef = useRef<Set<string>>(new Set());
 
   const handleFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
+      // Deduplicate by name+size
+      const key = `${file.name}-${file.size}`;
+      if (processingRef.current.has(key)) continue;
+      processingRef.current.add(key);
+
       const url = URL.createObjectURL(file);
       const mime = file.type.toLowerCase();
       let type: "video" | "image" | "audio" = "video";
@@ -45,7 +50,6 @@ export const Uploads = () => {
         file,
       };
 
-      // Generate thumbnail for video
       if (type === "video") {
         const video = document.createElement("video");
         video.preload = "metadata";
@@ -54,29 +58,47 @@ export const Uploads = () => {
           video.currentTime = Math.min(1, video.duration * 0.1);
         };
         video.onseeked = () => {
+          // High-res thumbnail
           const canvas = document.createElement("canvas");
-          canvas.width = 120;
-          canvas.height = Math.round((video.videoHeight / video.videoWidth) * 120) || 68;
+          const vw = video.videoWidth || 640;
+          const vh = video.videoHeight || 360;
+          canvas.width = 320;
+          canvas.height = Math.round((vh / vw) * 320);
           const ctx = canvas.getContext("2d");
           if (ctx) {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-            item.thumbnailUrl = canvas.toDataURL("image/jpeg", 0.6);
+            item.thumbnailUrl = canvas.toDataURL("image/jpeg", 0.85);
           }
-          setMedia((prev) => [...prev, item]);
+          setMedia((prev) => {
+            // Final dedup check
+            if (prev.some((m) => m.name === item.name && m.file.size === item.file.size)) return prev;
+            return [...prev, item];
+          });
           video.src = "";
         };
-        video.onerror = () => setMedia((prev) => [...prev, item]);
+        video.onerror = () => {
+          setMedia((prev) => {
+            if (prev.some((m) => m.name === item.name)) return prev;
+            return [...prev, item];
+          });
+        };
         video.src = url;
       } else if (type === "image") {
         item.thumbnailUrl = url;
-        setMedia((prev) => [...prev, item]);
+        setMedia((prev) => {
+          if (prev.some((m) => m.name === item.name && m.file.size === item.file.size)) return prev;
+          return [...prev, item];
+        });
       } else {
-        setMedia((prev) => [...prev, item]);
+        setMedia((prev) => {
+          if (prev.some((m) => m.name === item.name && m.file.size === item.file.size)) return prev;
+          return [...prev, item];
+        });
       }
     }
   }, []);
 
-  const handleAddToTimeline = useCallback((item: LocalMedia) => {
+  const addToTimeline = useCallback((item: LocalMedia) => {
     switch (item.type) {
       case "video":
         dispatch(ADD_VIDEO, {
@@ -117,7 +139,10 @@ export const Uploads = () => {
   const handleRemove = useCallback((id: string) => {
     setMedia((prev) => {
       const item = prev.find((m) => m.id === id);
-      if (item) URL.revokeObjectURL(item.url);
+      if (item) {
+        URL.revokeObjectURL(item.url);
+        processingRef.current.delete(`${item.name}-${item.file.size}`);
+      }
       return prev.filter((m) => m.id !== id);
     });
   }, []);
@@ -127,10 +152,22 @@ export const Uploads = () => {
     if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
 
+  // Drag from media bin to scene canvas
+  // DesignCombo's droppable reads: types[0] as JSON key, getData(key) as payload
+  const handleDragStart = useCallback((e: React.DragEvent, item: LocalMedia) => {
+    const payload = {
+      type: item.type,
+      details: { src: item.url },
+      metadata: { previewUrl: item.thumbnailUrl || "" },
+    };
+    const key = JSON.stringify({ type: item.type });
+    e.dataTransfer.setData(key, JSON.stringify(payload));
+    e.dataTransfer.effectAllowed = "copy";
+  }, []);
+
   const videos = media.filter((m) => m.type === "video");
   const images = media.filter((m) => m.type === "image");
   const audios = media.filter((m) => m.type === "audio");
-  const noMedia = media.length === 0;
 
   return (
     <div className="flex flex-1 flex-col">
@@ -143,7 +180,7 @@ export const Uploads = () => {
         className="hidden"
       />
 
-      <div className="flex items-center justify-center p-4">
+      <div className="p-3">
         <Button
           className="w-full cursor-pointer"
           onClick={() => fileInputRef.current?.click()}
@@ -154,52 +191,32 @@ export const Uploads = () => {
         </Button>
       </div>
 
-      {noMedia && (
+      {media.length === 0 && (
         <div
-          className="flex flex-col items-center justify-center py-10 text-muted-foreground gap-2 mx-4 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/30 transition-colors"
+          className="flex flex-col items-center justify-center py-8 text-muted-foreground gap-2 mx-3 border-2 border-dashed border-border rounded-lg cursor-pointer hover:border-primary/30 transition-colors"
           onClick={() => fileInputRef.current?.click()}
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleDrop}
         >
-          <Upload size={32} className="opacity-50" />
+          <Upload size={28} className="opacity-50" />
           <span className="text-sm">Drop files or click to browse</span>
           <span className="text-xs text-muted-foreground/60">Video, images, audio</span>
         </div>
       )}
 
       <ScrollArea className="flex-1">
-        <div className="flex flex-col gap-6 p-4">
-          {/* Videos */}
+        <div className="flex flex-col gap-4 p-3">
           {videos.length > 0 && (
-            <MediaSection
-              title="Videos"
-              icon={<VideoIcon className="w-4 h-4" />}
-              items={videos}
-              onAdd={handleAddToTimeline}
-              onRemove={handleRemove}
-            />
+            <MediaSection title="Videos" icon={<VideoIcon className="w-4 h-4" />}
+              items={videos} onAdd={addToTimeline} onRemove={handleRemove} onDragStart={handleDragStart} />
           )}
-
-          {/* Images */}
           {images.length > 0 && (
-            <MediaSection
-              title="Images"
-              icon={<ImageIcon className="w-4 h-4" />}
-              items={images}
-              onAdd={handleAddToTimeline}
-              onRemove={handleRemove}
-            />
+            <MediaSection title="Images" icon={<ImageIcon className="w-4 h-4" />}
+              items={images} onAdd={addToTimeline} onRemove={handleRemove} onDragStart={handleDragStart} />
           )}
-
-          {/* Audio */}
           {audios.length > 0 && (
-            <MediaSection
-              title="Audio"
-              icon={<Music className="w-4 h-4" />}
-              items={audios}
-              onAdd={handleAddToTimeline}
-              onRemove={handleRemove}
-            />
+            <MediaSection title="Audio" icon={<Music className="w-4 h-4" />}
+              items={audios} onAdd={addToTimeline} onRemove={handleRemove} onDragStart={handleDragStart} />
           )}
         </div>
       </ScrollArea>
@@ -207,12 +224,13 @@ export const Uploads = () => {
   );
 };
 
-function MediaSection({ title, icon, items, onAdd, onRemove }: {
+function MediaSection({ title, icon, items, onAdd, onRemove, onDragStart }: {
   title: string;
   icon: React.ReactNode;
   items: LocalMedia[];
   onAdd: (item: LocalMedia) => void;
   onRemove: (id: string) => void;
+  onDragStart: (e: React.DragEvent, item: LocalMedia) => void;
 }) {
   return (
     <div>
@@ -226,19 +244,21 @@ function MediaSection({ title, icon, items, onAdd, onRemove }: {
           <div key={item.id} className="group relative">
             <Card
               className="aspect-video flex items-center justify-center overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all"
+              draggable
+              onDragStart={(e) => onDragStart(e, item)}
               onClick={() => onAdd(item)}
             >
               {item.thumbnailUrl ? (
                 <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
               ) : item.type === "audio" ? (
-                <Music className="w-8 h-8 text-muted-foreground" />
+                <Music className="w-6 h-6 text-muted-foreground" />
               ) : (
-                <VideoIcon className="w-8 h-8 text-muted-foreground" />
+                <VideoIcon className="w-6 h-6 text-muted-foreground" />
               )}
             </Card>
             <button
               onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-destructive/80 hover:text-white"
             >
               <X className="w-3 h-3" />
             </button>
