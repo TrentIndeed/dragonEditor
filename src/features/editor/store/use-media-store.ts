@@ -7,6 +7,9 @@ interface LocalMedia {
   url: string;
   thumbnailUrl?: string;
   fileSize: number;
+  duration?: number; // milliseconds
+  width?: number;
+  height?: number;
 }
 
 interface MediaStore {
@@ -19,7 +22,6 @@ interface MediaStore {
 const useMediaStore = create<MediaStore>((set, get) => ({
   items: [],
   addItem: (item) => set((s) => {
-    // Dedup
     if (s.items.some((m) => m.name === item.name && m.fileSize === item.fileSize)) return s;
     return { items: [...s.items, item] };
   }),

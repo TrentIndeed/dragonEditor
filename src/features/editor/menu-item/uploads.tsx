@@ -44,7 +44,13 @@ export const Uploads = () => {
         const video = document.createElement("video");
         video.preload = "metadata";
         video.muted = true;
-        video.onloadeddata = () => { video.currentTime = Math.min(1, video.duration * 0.1); };
+        video.onloadedmetadata = () => {
+          // Capture duration and dimensions
+          item.duration = Math.round(video.duration * 1000); // ms
+          item.width = video.videoWidth;
+          item.height = video.videoHeight;
+          video.currentTime = Math.min(1, video.duration * 0.1);
+        };
         video.onseeked = () => {
           const canvas = document.createElement("canvas");
           const vw = video.videoWidth || 640;
@@ -72,15 +78,37 @@ export const Uploads = () => {
 
   const addToTimeline = useCallback((item: LocalMedia) => {
     // Media stays in the bin — only dispatches to DesignCombo timeline
+    const durationMs = item.duration || 10000; // default 10s if unknown
+
     switch (item.type) {
       case "video":
         dispatch(ADD_VIDEO, {
           payload: {
             id: generateId(),
-            details: { src: item.url },
-            metadata: { previewUrl: item.thumbnailUrl || "" },
+            type: "video",
+            display: {
+              from: 0,
+              to: durationMs,
+            },
+            trim: {
+              from: 0,
+              to: durationMs,
+            },
+            details: {
+              src: item.url,
+              width: item.width || 1920,
+              height: item.height || 1080,
+              duration: durationMs,
+              volume: 100,
+            },
+            metadata: {
+              previewUrl: item.thumbnailUrl || "",
+            },
           },
-          options: { resourceId: "main", scaleMode: "fit" },
+          options: {
+            resourceId: "main",
+            scaleMode: "fit",
+          },
         });
         break;
       case "image":
@@ -89,7 +117,11 @@ export const Uploads = () => {
             id: generateId(),
             type: "image",
             display: { from: 0, to: 5000 },
-            details: { src: item.url },
+            details: {
+              src: item.url,
+              width: item.width || 1920,
+              height: item.height || 1080,
+            },
             metadata: {},
           },
           options: {},
@@ -100,7 +132,19 @@ export const Uploads = () => {
           payload: {
             id: generateId(),
             type: "audio",
-            details: { src: item.url },
+            display: {
+              from: 0,
+              to: durationMs,
+            },
+            trim: {
+              from: 0,
+              to: durationMs,
+            },
+            details: {
+              src: item.url,
+              duration: durationMs,
+              volume: 100,
+            },
             metadata: {},
           },
           options: {},
@@ -197,9 +241,18 @@ function MediaItem({ item, onAdd, onRemove }: {
   onAdd: (item: LocalMedia) => void;
   onRemove: (id: string) => void;
 }) {
+  const durationMs = item.duration || 10000;
   const dragData = {
     type: item.type,
-    details: { src: item.url },
+    display: { from: 0, to: durationMs },
+    trim: { from: 0, to: durationMs },
+    details: {
+      src: item.url,
+      width: item.width || 1920,
+      height: item.height || 1080,
+      duration: durationMs,
+      volume: 100,
+    },
     metadata: { previewUrl: item.thumbnailUrl || "" },
   };
 
