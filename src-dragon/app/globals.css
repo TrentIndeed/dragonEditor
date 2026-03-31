@@ -1,0 +1,95 @@
+@import "tailwindcss";
+
+@theme {
+  /* Backgrounds — dark purple/indigo tinted */
+  --color-bg-deep: #0E0B1A;
+  --color-bg-panel: #13101F;
+  --color-bg-panel-header: #110E1C;
+  --color-bg-surface: #1A1726;
+  --color-bg-hover: #221E30;
+  --color-bg-active: #2A2540;
+  --color-bg-elevated: #332D4A;
+
+  /* Borders */
+  --color-border-default: #1E1A2E;
+  --color-border-active: #2D2844;
+  --color-border-focus: #3D3660;
+
+  /* Text */
+  --color-text-primary: #F0EEF5;
+  --color-text-secondary: #A8A3B8;
+  --color-text-muted: #706B85;
+  --color-text-faint: #4A4560;
+
+  /* Accents */
+  --color-accent-primary: #7C6BF0;
+  --color-accent-primary-muted: #5A4ABB;
+  --color-accent-orange: #F0A050;
+  --color-accent-red: #EF6060;
+  --color-accent-blue: #6BA0F0;
+  --color-accent-purple: #A07BF0;
+  --color-accent-green: #50D0A0;
+  --color-accent-yellow: #F0D060;
+
+  /* Clip colors */
+  --color-clip-video: #6B80F0;
+  --color-clip-mic: #50C080;
+  --color-clip-broll: #A060E0;
+  --color-clip-caption: #F0B040;
+  --color-clip-sfx: #50B0D0;
+  --color-clip-music: #E060A0;
+
+  /* Stage colors */
+  --color-stage-trim: #7C6BF0;
+  --color-stage-audio: #50D0A0;
+  --color-stage-zoom: #6BA0F0;
+  --color-stage-broll: #A07BF0;
+  --color-stage-caption: #F0D060;
+  --color-stage-sfx: #50B0D0;
+  --color-stage-color: #F0A050;
+  --color-stage-review: #F08050;
+  --color-stage-export: #50D0A0;
+  --color-stage-thumbnail: #F0D060;
+
+  /* Toggle */
+  --color-toggle-on: #7C6BF0;
+  --color-toggle-off: #2A2540;
+
+  /* Font families */
+  --font-heading: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0E0B1A;
+  color: #F0EEF5;
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #2D2844; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3D3660; }
+::selection { background: rgba(124, 107, 240, 0.25); color: #F0EEF5; }
+
+.focus-ring:focus-visible { outline: 2px solid #7C6BF0; outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
