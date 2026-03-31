@@ -12,7 +12,8 @@ import {
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useRef, useState, useMemo } from "react";
+import Draggable from "@/components/shared/draggable";
 
 interface LocalMedia {
   id: string;
@@ -152,19 +153,6 @@ export const Uploads = () => {
     if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
   }, [handleFiles]);
 
-  // Drag from media bin to scene canvas
-  // DesignCombo's droppable reads: types[0] as JSON key, getData(key) as payload
-  const handleDragStart = useCallback((e: React.DragEvent, item: LocalMedia) => {
-    const payload = {
-      type: item.type,
-      details: { src: item.url },
-      metadata: { previewUrl: item.thumbnailUrl || "" },
-    };
-    const key = JSON.stringify({ type: item.type });
-    e.dataTransfer.setData(key, JSON.stringify(payload));
-    e.dataTransfer.effectAllowed = "copy";
-  }, []);
-
   const videos = media.filter((m) => m.type === "video");
   const images = media.filter((m) => m.type === "image");
   const audios = media.filter((m) => m.type === "audio");
@@ -208,15 +196,15 @@ export const Uploads = () => {
         <div className="flex flex-col gap-4 p-3">
           {videos.length > 0 && (
             <MediaSection title="Videos" icon={<VideoIcon className="w-4 h-4" />}
-              items={videos} onAdd={addToTimeline} onRemove={handleRemove} onDragStart={handleDragStart} />
+              items={videos} onAdd={addToTimeline} onRemove={handleRemove} />
           )}
           {images.length > 0 && (
             <MediaSection title="Images" icon={<ImageIcon className="w-4 h-4" />}
-              items={images} onAdd={addToTimeline} onRemove={handleRemove} onDragStart={handleDragStart} />
+              items={images} onAdd={addToTimeline} onRemove={handleRemove} />
           )}
           {audios.length > 0 && (
             <MediaSection title="Audio" icon={<Music className="w-4 h-4" />}
-              items={audios} onAdd={addToTimeline} onRemove={handleRemove} onDragStart={handleDragStart} />
+              items={audios} onAdd={addToTimeline} onRemove={handleRemove} />
           )}
         </div>
       </ScrollArea>
@@ -224,13 +212,12 @@ export const Uploads = () => {
   );
 };
 
-function MediaSection({ title, icon, items, onAdd, onRemove, onDragStart }: {
+function MediaSection({ title, icon, items, onAdd, onRemove }: {
   title: string;
   icon: React.ReactNode;
   items: LocalMedia[];
   onAdd: (item: LocalMedia) => void;
   onRemove: (id: string) => void;
-  onDragStart: (e: React.DragEvent, item: LocalMedia) => void;
 }) {
   return (
     <div>
@@ -241,31 +228,47 @@ function MediaSection({ title, icon, items, onAdd, onRemove, onDragStart }: {
       </div>
       <div className="grid grid-cols-2 gap-2">
         {items.map((item) => (
-          <div key={item.id} className="group relative">
-            <Card
-              className="aspect-video flex items-center justify-center overflow-hidden cursor-pointer hover:ring-1 hover:ring-primary/50 transition-all"
-              draggable
-              onDragStart={(e) => onDragStart(e, item)}
-              onClick={() => onAdd(item)}
-            >
-              {item.thumbnailUrl ? (
-                <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" />
-              ) : item.type === "audio" ? (
-                <Music className="w-6 h-6 text-muted-foreground" />
-              ) : (
-                <VideoIcon className="w-6 h-6 text-muted-foreground" />
-              )}
-            </Card>
-            <button
-              onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
-              className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-destructive/80 hover:text-white"
-            >
-              <X className="w-3 h-3" />
-            </button>
-            <p className="text-[10px] text-muted-foreground truncate mt-1">{item.name}</p>
-          </div>
+          <MediaItem key={item.id} item={item} onAdd={onAdd} onRemove={onRemove} />
         ))}
       </div>
+    </div>
+  );
+}
+
+function MediaItem({ item, onAdd, onRemove }: {
+  item: LocalMedia;
+  onAdd: (item: LocalMedia) => void;
+  onRemove: (id: string) => void;
+}) {
+  const dragData = useMemo(() => ({
+    type: item.type,
+    details: { src: item.url },
+    metadata: { previewUrl: item.thumbnailUrl || "" },
+  }), [item.type, item.url, item.thumbnailUrl]);
+
+  return (
+    <div className="group relative">
+      <Draggable data={dragData}>
+        <div
+          onClick={() => onAdd(item)}
+          className="aspect-video flex items-center justify-center overflow-hidden cursor-pointer rounded-lg border border-border hover:ring-1 hover:ring-primary/50 transition-all bg-card"
+        >
+          {item.thumbnailUrl ? (
+            <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" draggable={false} />
+          ) : item.type === "audio" ? (
+            <Music className="w-6 h-6 text-muted-foreground" />
+          ) : (
+            <VideoIcon className="w-6 h-6 text-muted-foreground" />
+          )}
+        </div>
+      </Draggable>
+      <button
+        onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
+        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-destructive/80 hover:text-white z-10"
+      >
+        <X className="w-3 h-3" />
+      </button>
+      <p className="text-[10px] text-muted-foreground truncate mt-1">{item.name}</p>
     </div>
   );
 }
