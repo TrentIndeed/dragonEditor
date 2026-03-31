@@ -1,7 +1,6 @@
 import { ADD_AUDIO, ADD_IMAGE, ADD_VIDEO } from "@designcombo/state";
 import { dispatch } from "@designcombo/events";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
 import {
   Music,
   Image as ImageIcon,
@@ -9,33 +8,23 @@ import {
   Upload,
   UploadIcon,
   X,
+  Plus,
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
-import { useCallback, useRef, useState, useMemo } from "react";
+import { useCallback, useRef } from "react";
+import useMediaStore, { type LocalMedia } from "../store/use-media-store";
 import Draggable from "@/components/shared/draggable";
-
-interface LocalMedia {
-  id: string;
-  name: string;
-  type: "video" | "image" | "audio";
-  url: string;
-  file: File;
-  thumbnailUrl?: string;
-}
+import { cn } from "@/lib/utils";
 
 export const Uploads = () => {
-  const [media, setMedia] = useState<LocalMedia[]>([]);
+  const { items: media, addItem, removeItem, hasItem } = useMediaStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const processingRef = useRef<Set<string>>(new Set());
 
   const handleFiles = useCallback((files: FileList | File[]) => {
     const fileArray = Array.from(files);
     for (const file of fileArray) {
-      // Deduplicate by name+size
-      const key = `${file.name}-${file.size}`;
-      if (processingRef.current.has(key)) continue;
-      processingRef.current.add(key);
+      if (hasItem(file.name, file.size)) continue;
 
       const url = URL.createObjectURL(file);
       const mime = file.type.toLowerCase();
@@ -48,18 +37,15 @@ export const Uploads = () => {
         name: file.name,
         type,
         url,
-        file,
+        fileSize: file.size,
       };
 
       if (type === "video") {
         const video = document.createElement("video");
         video.preload = "metadata";
         video.muted = true;
-        video.onloadeddata = () => {
-          video.currentTime = Math.min(1, video.duration * 0.1);
-        };
+        video.onloadeddata = () => { video.currentTime = Math.min(1, video.duration * 0.1); };
         video.onseeked = () => {
-          // High-res thumbnail
           const canvas = document.createElement("canvas");
           const vw = video.videoWidth || 640;
           const vh = video.videoHeight || 360;
@@ -70,36 +56,22 @@ export const Uploads = () => {
             ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
             item.thumbnailUrl = canvas.toDataURL("image/jpeg", 0.85);
           }
-          setMedia((prev) => {
-            // Final dedup check
-            if (prev.some((m) => m.name === item.name && m.file.size === item.file.size)) return prev;
-            return [...prev, item];
-          });
+          addItem(item);
           video.src = "";
         };
-        video.onerror = () => {
-          setMedia((prev) => {
-            if (prev.some((m) => m.name === item.name)) return prev;
-            return [...prev, item];
-          });
-        };
+        video.onerror = () => addItem(item);
         video.src = url;
       } else if (type === "image") {
         item.thumbnailUrl = url;
-        setMedia((prev) => {
-          if (prev.some((m) => m.name === item.name && m.file.size === item.file.size)) return prev;
-          return [...prev, item];
-        });
+        addItem(item);
       } else {
-        setMedia((prev) => {
-          if (prev.some((m) => m.name === item.name && m.file.size === item.file.size)) return prev;
-          return [...prev, item];
-        });
+        addItem(item);
       }
     }
-  }, []);
+  }, [addItem, hasItem]);
 
   const addToTimeline = useCallback((item: LocalMedia) => {
+    // Media stays in the bin — only dispatches to DesignCombo timeline
     switch (item.type) {
       case "video":
         dispatch(ADD_VIDEO, {
@@ -137,17 +109,6 @@ export const Uploads = () => {
     }
   }, []);
 
-  const handleRemove = useCallback((id: string) => {
-    setMedia((prev) => {
-      const item = prev.find((m) => m.id === id);
-      if (item) {
-        URL.revokeObjectURL(item.url);
-        processingRef.current.delete(`${item.name}-${item.file.size}`);
-      }
-      return prev.filter((m) => m.id !== id);
-    });
-  }, []);
-
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
@@ -169,11 +130,7 @@ export const Uploads = () => {
       />
 
       <div className="p-3">
-        <Button
-          className="w-full cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
-          variant="outline"
-        >
+        <Button className="w-full cursor-pointer" onClick={() => fileInputRef.current?.click()} variant="outline">
           <UploadIcon className="w-4 h-4" />
           <span className="ml-2">Upload</span>
         </Button>
@@ -196,15 +153,15 @@ export const Uploads = () => {
         <div className="flex flex-col gap-4 p-3">
           {videos.length > 0 && (
             <MediaSection title="Videos" icon={<VideoIcon className="w-4 h-4" />}
-              items={videos} onAdd={addToTimeline} onRemove={handleRemove} />
+              items={videos} onAdd={addToTimeline} onRemove={removeItem} />
           )}
           {images.length > 0 && (
             <MediaSection title="Images" icon={<ImageIcon className="w-4 h-4" />}
-              items={images} onAdd={addToTimeline} onRemove={handleRemove} />
+              items={images} onAdd={addToTimeline} onRemove={removeItem} />
           )}
           {audios.length > 0 && (
             <MediaSection title="Audio" icon={<Music className="w-4 h-4" />}
-              items={audios} onAdd={addToTimeline} onRemove={handleRemove} />
+              items={audios} onAdd={addToTimeline} onRemove={removeItem} />
           )}
         </div>
       </ScrollArea>
@@ -240,11 +197,11 @@ function MediaItem({ item, onAdd, onRemove }: {
   onAdd: (item: LocalMedia) => void;
   onRemove: (id: string) => void;
 }) {
-  const dragData = useMemo(() => ({
+  const dragData = {
     type: item.type,
     details: { src: item.url },
     metadata: { previewUrl: item.thumbnailUrl || "" },
-  }), [item.type, item.url, item.thumbnailUrl]);
+  };
 
   return (
     <div className="group relative">
@@ -262,6 +219,13 @@ function MediaItem({ item, onAdd, onRemove }: {
           )}
         </div>
       </Draggable>
+      {/* Add to timeline button */}
+      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+        <div className="bg-black/50 rounded-full p-1.5 pointer-events-auto cursor-pointer" onClick={() => onAdd(item)}>
+          <Plus className="w-4 h-4 text-white" />
+        </div>
+      </div>
+      {/* Delete button */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}
         className="absolute top-1 right-1 w-5 h-5 rounded-full bg-background/80 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:bg-destructive/80 hover:text-white z-10"
