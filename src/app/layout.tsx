@@ -42,7 +42,8 @@ export default async function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${geistMono.variable} ${geist.variable} ${outfit.variable} antialiased font-sans bg-muted`}
+        className={`${geistMono.variable} ${geist.variable} ${outfit.variable} antialiased bg-muted`}
+        style={{ fontFamily: "var(--font-geist), system-ui, sans-serif" }}
       >
         <ThemeProvider
           attribute="class"

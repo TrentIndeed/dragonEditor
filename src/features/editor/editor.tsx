@@ -33,7 +33,7 @@ import { useLinkedAudio } from "./hooks/use-linked-audio";
 import { useSnap } from "./hooks/use-snap";
 import { useRippleDelete } from "./hooks/use-ripple-delete";
 import { design } from "./mock";
-import { Separator } from "@/components/ui/separator";
+// import { Separator } from "@/components/ui/separator";
 
 const stateManager = new StateManager({
   size: {
@@ -73,10 +73,9 @@ const SceneContainer = ({
 
 const Sidebar = () => {
   return (
-    <div className="bg-card w-full flex flex-none border-r border-border/80 h-[calc(100vh-52px)]">
-      <div className="flex flex-col w-full">
-        <MenuList />
-        <Separator orientation="horizontal" />
+    <div className="bg-card w-full flex flex-row flex-none border-r border-border/80 h-[calc(100vh-52px)]">
+      <MenuList />
+      <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
         <ControlItem />
       </div>
     </div>

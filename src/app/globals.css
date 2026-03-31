@@ -123,7 +123,7 @@
   --sidebar-border: oklch(0.9298 0.0138 76.5785);
   --sidebar-ring: oklch(0.8512 0.1254 73.9788);
   --destructive-foreground: oklch(0.9934 0.0032 17.2118);
-  --font-sans: Outfit, sans-serif;
+  --font-sans: var(--font-geist), system-ui, sans-serif;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: monospace;
   --shadow-color: #000000;
@@ -188,7 +188,7 @@
   --destructive-foreground: oklch(0.95 0.005 0);
   --card-track: oklch(0.22 0.005 260);
   --radius: 0.5rem;
-  --font-sans: Outfit, sans-serif;
+  --font-sans: var(--font-geist), system-ui, sans-serif;
   --font-serif: ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
   --font-mono: monospace;
   --shadow-color: #000000;
