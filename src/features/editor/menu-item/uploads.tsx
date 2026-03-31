@@ -103,51 +103,24 @@ export const Uploads = () => {
   }, [addItem, hasItem]);
 
   const addToTimeline = useCallback((item: LocalMedia) => {
-    // Media stays in the bin — only dispatches to DesignCombo timeline
-    const durationMs = item.duration || 10000; // default 10s if unknown
-
+    // Minimal payload — let DesignCombo's StateManager handle duration/sizing
+    // This matches how the original Pexels video panel dispatches
     switch (item.type) {
       case "video":
         dispatch(ADD_VIDEO, {
           payload: {
             id: generateId(),
-            type: "video",
-            display: {
-              from: 0,
-              to: durationMs,
-            },
-            trim: {
-              from: 0,
-              to: durationMs,
-            },
-            details: {
-              src: item.url,
-              width: item.width || 1920,
-              height: item.height || 1080,
-              duration: durationMs,
-              volume: 100,
-            },
-            metadata: {
-              previewUrl: item.thumbnailUrl || "",
-            },
+            details: { src: item.url },
+            metadata: { previewUrl: item.thumbnailUrl || "" },
           },
-          options: {
-            resourceId: "main",
-            scaleMode: "fit",
-          },
+          options: { resourceId: "main", scaleMode: "fit" },
         });
         break;
       case "image":
         dispatch(ADD_IMAGE, {
           payload: {
             id: generateId(),
-            type: "image",
-            display: { from: 0, to: 5000 },
-            details: {
-              src: item.url,
-              width: item.width || 1920,
-              height: item.height || 1080,
-            },
+            details: { src: item.url },
             metadata: {},
           },
           options: {},
@@ -157,20 +130,7 @@ export const Uploads = () => {
         dispatch(ADD_AUDIO, {
           payload: {
             id: generateId(),
-            type: "audio",
-            display: {
-              from: 0,
-              to: durationMs,
-            },
-            trim: {
-              from: 0,
-              to: durationMs,
-            },
-            details: {
-              src: item.url,
-              duration: durationMs,
-              volume: 100,
-            },
+            details: { src: item.url },
             metadata: {},
           },
           options: {},
@@ -267,18 +227,9 @@ function MediaItem({ item, onAdd, onRemove }: {
   onAdd: (item: LocalMedia) => void;
   onRemove: (id: string) => void;
 }) {
-  const durationMs = item.duration || 10000;
   const dragData = {
     type: item.type,
-    display: { from: 0, to: durationMs },
-    trim: { from: 0, to: durationMs },
-    details: {
-      src: item.url,
-      width: item.width || 1920,
-      height: item.height || 1080,
-      duration: durationMs,
-      volume: 100,
-    },
+    details: { src: item.url },
     metadata: { previewUrl: item.thumbnailUrl || "" },
   };
 
