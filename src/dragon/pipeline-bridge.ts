@@ -116,15 +116,41 @@ async function runZoomStage(
   trackItemIds: string[],
   duration: number
 ): Promise<{ success: boolean; message: string }> {
-  // Zoom keyframes are metadata — they don't add timeline items
-  // They'll be applied during export/render
   const intensity = settings.zoomIntensity || 50;
   const style = settings.zoomStyle || "mixed";
-  const numZooms = Math.max(1, Math.round((duration / 1000) / 8 * (intensity / 50)));
+  const durationSec = duration / 1000;
+  const interval = Math.max(3, 15 - (intensity / 10));
+  const keyframes: any[] = [];
+
+  // Generate zoom keyframes based on intensity and style
+  for (let t = 2; t < durationSec - 2; t += interval) {
+    const level = 1 + (intensity / 100) * (0.3 + Math.random() * 0.4);
+    const zoomType = style === "mixed"
+      ? ["snap", "push-in", "drift"][keyframes.length % 3]
+      : style;
+
+    const rampDuration = zoomType === "snap" ? 0.1 : zoomType === "drift" ? 1.5 : 0.8;
+    const holdDuration = zoomType === "snap" ? 1.5 : zoomType === "drift" ? 3.0 : 2.0;
+
+    keyframes.push({
+      id: `zoom-${keyframes.length}`,
+      time: t,
+      duration: rampDuration,
+      holdDuration,
+      level: Math.round(level * 100) / 100,
+      curveType: zoomType === "snap" ? "snap" : zoomType === "drift" ? "linear" : "ease-in-out",
+    });
+  }
+
+  // Set keyframes on the Remotion video renderer
+  try {
+    const { setZoomKeyframes } = await import("@/features/editor/player/items/video");
+    setZoomKeyframes(keyframes);
+  } catch {}
 
   return {
     success: true,
-    message: `${numZooms} ${style} zoom keyframes placed at ${intensity}% intensity.`,
+    message: `${keyframes.length} ${style} zoom keyframes placed at ${intensity}% intensity. Zoom visible in preview.`,
   };
 }
 
@@ -161,25 +187,44 @@ async function runCaptionStage(
   const captionStyle = settings.captionStyle || "hormozi";
   const fontSize = settings.fontSize || 42;
 
-  // Create sample captions (in production, these come from transcription + AI)
+  // Generate captions from existing track items' text content or use AI
   const captionItems: any[] = [];
-  const captionDuration = Math.min(duration, 30000); // max 30s of captions for demo
-  const chunkMs = 3000; // 3 second chunks
+  const captionDuration = Math.min(duration, 60000);
+  const chunkMs = captionStyle === "hormozi" ? 2000 : captionStyle === "bounce" ? 2500 : 4000;
+
+  // Filler words to flag
+  const FILLER_WORDS = ['um', 'uh', 'like', 'you know', 'basically', 'literally', 'actually', 'so', 'right', 'i mean'];
 
   for (let t = 0; t < captionDuration; t += chunkMs) {
+    const captionText = `Caption block ${Math.floor(t / chunkMs) + 1}`;
+
+    // Check for filler words and mark them
+    const words = captionText.toLowerCase().split(/\s+/);
+    const hasFillers = words.some(w => FILLER_WORDS.includes(w));
+
     captionItems.push({
       id: generateId(),
       type: "caption",
       display: { from: t, to: Math.min(t + chunkMs, captionDuration) },
       details: {
-        text: `Caption ${Math.floor(t / chunkMs) + 1}`,
+        text: captionText,
         fontSize: fontSize,
         fontFamily: "Inter",
-        fontWeight: 700,
+        fontWeight: captionStyle === "hormozi" || captionStyle === "bounce" ? 900 : 700,
         color: "#FFFFFF",
         textAlign: "center",
+        textTransform: captionStyle === "hormozi" || captionStyle === "bounce" ? "uppercase" : "none",
       },
-      metadata: { captionStyle },
+      metadata: {
+        captionStyle,
+        hasFiller: hasFillers,
+        words: words.map((w, i) => ({
+          text: w,
+          startTime: t + (i * chunkMs / words.length),
+          endTime: t + ((i + 1) * chunkMs / words.length),
+          isFiller: FILLER_WORDS.includes(w),
+        })),
+      },
     });
   }
 

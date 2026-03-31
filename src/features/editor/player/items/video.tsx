@@ -5,6 +5,12 @@ import { calculateContainerStyles, calculateMediaStyles } from "../styles";
 import { getAnimations } from "../../utils/get-animations";
 import { calculateFrames } from "../../utils/frames";
 import { OffthreadVideo } from "remotion";
+import { getZoomAtTime } from "@/dragon/zoom-engine";
+
+// Global zoom keyframes — set by the AI pipeline zoom stage
+let _zoomKeyframes: any[] = [];
+export function setZoomKeyframes(keyframes: any[]) { _zoomKeyframes = keyframes; }
+export function getZoomKeyframes() { return _zoomKeyframes; }
 
 export const Video = ({
   item,
@@ -31,6 +37,13 @@ export const Video = ({
   const { durationInFrames } = calculateFrames(item.display, fps);
   const currentFrame = (frame || 0) - (item.display.from * fps) / 1000;
 
+  // Apply Dragon zoom engine if keyframes exist
+  const currentTimeMs = (frame || 0) / fps * 1000;
+  const zoomState = _zoomKeyframes.length > 0
+    ? getZoomAtTime(_zoomKeyframes, currentTimeMs / 1000)
+    : { scale: 1, progress: 0, activeKeyframeId: null };
+  const zoomScale = zoomState.scale;
+
   const children = (
     <BoxAnim
       style={calculateContainerStyles(details, crop, {
@@ -51,7 +64,11 @@ export const Video = ({
           keyframeAnimations={animationTimed}
           frame={frame || 0}
         >
-          <div style={calculateMediaStyles(details, crop)}>
+          <div style={{
+            ...calculateMediaStyles(details, crop),
+            transform: zoomScale > 1.01 ? `scale(${zoomScale})` : undefined,
+            transformOrigin: "center center",
+          }}>
             <OffthreadVideo
               startFrom={(item.trim?.from! / 1000) * fps}
               endAt={(item.trim?.to! / 1000) * fps || 1 / fps}

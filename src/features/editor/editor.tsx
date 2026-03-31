@@ -29,6 +29,9 @@ import { ITrackItem } from "@designcombo/types";
 import useLayoutStore from "./store/use-layout-store";
 import ControlItemHorizontal from "./control-item-horizontal";
 import { useAutoSave } from "./hooks/use-auto-save";
+import { useLinkedAudio } from "./hooks/use-linked-audio";
+import { useSnap } from "./hooks/use-snap";
+import { useRippleDelete } from "./hooks/use-ripple-delete";
 import { design } from "./mock";
 import { Separator } from "@/components/ui/separator";
 
@@ -99,6 +102,9 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
 
   useTimelineEvents();
   useAutoSave();
+  useLinkedAudio();
+  useSnap();
+  useRippleDelete();
 
   const { setCompactFonts, setFonts } = useDataState();
   // useEffect(() => {
