@@ -68,11 +68,25 @@ export function AIPipeline() {
     }));
   }, [getSettings]);
 
+  // Send thinking message to AI chat panel
+  const notifyChat = (stageId: string, stageName: string) => {
+    const chat = (window as any).__dragonChat;
+    if (chat?.addThinking) chat.addThinking(stageId, stageName);
+  };
+
+  const notifyChatSummary = (count: number, elapsed: string) => {
+    const chat = (window as any).__dragonChat;
+    if (chat?.addPipelineSummary) chat.addPipelineSummary(count, elapsed);
+  };
+
   const runStage = useCallback(async (stageId: string) => {
     setOpenSettings(null);
     setCurrentStage(stageId);
     setIsRunning(true);
     setStageStatuses((prev) => ({ ...prev, [stageId]: "running" }));
+
+    const stageName = STAGES.find(s => s.id === stageId)?.name || stageId;
+    notifyChat(stageId, stageName);
 
     try {
       const result = await runPipelineStage(
@@ -100,10 +114,14 @@ export function AIPipeline() {
 
   const runAll = useCallback(async () => {
     setIsRunning(true);
+    const startTime = Date.now();
+    let completed = 0;
+
     for (const stage of STAGES) {
       if (stageStatuses[stage.id] === "done") continue;
       setCurrentStage(stage.id);
       setStageStatuses((prev) => ({ ...prev, [stage.id]: "running" }));
+      notifyChat(stage.id, stage.name);
 
       try {
         const result = await runPipelineStage(
@@ -113,12 +131,16 @@ export function AIPipeline() {
         );
         setStageMessages((prev) => ({ ...prev, [stage.id]: result.message }));
         setStageStatuses((prev) => ({ ...prev, [stage.id]: result.success ? "done" : "rejected" }));
+        if (result.success) completed++;
       } catch {
         setStageStatuses((prev) => ({ ...prev, [stage.id]: "rejected" }));
       }
     }
     setCurrentStage(null);
     setIsRunning(false);
+
+    const elapsed = ((Date.now() - startTime) / 1000).toFixed(1) + 's';
+    notifyChatSummary(completed, elapsed);
   }, [stageStatuses, getSettings]);
 
   const stopPipeline = useCallback(() => {
