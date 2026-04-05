@@ -8,7 +8,6 @@ import {
   Upload,
   UploadIcon,
   X,
-  Plus,
 } from "lucide-react";
 import { generateId } from "@designcombo/timeline";
 import { Button } from "@/components/ui/button";
@@ -17,29 +16,65 @@ import useMediaStore, { type LocalMedia } from "../store/use-media-store";
 import { storeMediaFile, getMediaFile } from "@/dragon/media-db";
 import Draggable from "@/components/shared/draggable";
 import { cn } from "@/lib/utils";
+import {
+  useDragonTimelineStore,
+  TRACK_COLORS,
+  type TrackType,
+} from "../store/use-dragon-timeline";
+import { useHistoryStore } from "../store/use-history";
 
 export const Uploads = () => {
   const { items: media, addItem, removeItem, hasItem } = useMediaStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoredRef = useRef(false);
 
-  // Restore blob URLs from IndexedDB on mount
+  // Restore blob URLs from IndexedDB on mount, then re-link timeline clips
   useEffect(() => {
     if (restoredRef.current) return;
     restoredRef.current = true;
 
     (async () => {
+      // Build a map of name → restored URL for timeline re-linking
+      const restoredUrls: Record<string, string> = {};
+
       for (const item of media) {
-        if (item.url && item.url.length > 0) continue; // already has URL
+        if (item.url && item.url.length > 0) {
+          restoredUrls[item.name] = item.url;
+          continue;
+        }
         const stored = await getMediaFile(item.id);
         if (stored) {
-          // Update the item's URL in the store
+          restoredUrls[item.name] = stored.url;
           useMediaStore.setState((s) => ({
             items: s.items.map((m) =>
               m.id === item.id ? { ...m, url: stored.url } : m
             ),
           }));
         }
+      }
+
+      // Re-link timeline clip src/thumbnailUrl from restored media
+      const timelineClips = useDragonTimelineStore.getState().clips;
+      const needsUpdate = timelineClips.some((c) => !c.src || c.src === "");
+      if (needsUpdate && Object.keys(restoredUrls).length > 0) {
+        // Also rebuild thumbnail map
+        const mediaItems = useMediaStore.getState().items;
+        const thumbMap: Record<string, string | undefined> = {};
+        for (const m of mediaItems) {
+          thumbMap[m.name] = m.thumbnailUrl;
+        }
+
+        useDragonTimelineStore.setState((s) => ({
+          clips: s.clips.map((c) => {
+            // Match by clip name (strip " (audio)" suffix for linked audio clips)
+            const baseName = c.name.replace(/ \(audio\)$/, "");
+            const url = restoredUrls[baseName];
+            if (url && (!c.src || c.src === "")) {
+              return { ...c, src: url, thumbnailUrl: c.thumbnailUrl || thumbMap[baseName] };
+            }
+            return c;
+          }),
+        }));
       }
     })();
   }, [media]);
@@ -102,9 +137,47 @@ export const Uploads = () => {
     }
   }, [addItem, hasItem]);
 
+  const addToDragonTimeline = useCallback((item: LocalMedia) => {
+    useHistoryStore.getState().pushSnapshot();
+    const store = useDragonTimelineStore.getState();
+    const genId = () => {
+      const c = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+      let r = "";
+      for (let i = 0; i < 12; i++) r += c[Math.floor(Math.random() * c.length)];
+      return r;
+    };
+
+    // Duration in seconds (item.duration is in ms from video metadata)
+    const dur = item.duration ? item.duration / 1000 : 5;
+
+    if (item.type === "video") {
+      const trackClips = store.clips.filter((c) => c.trackType === "video");
+      const start = trackClips.length > 0
+        ? Math.max(...trackClips.map((c) => c.startTime + c.duration))
+        : 0;
+      const videoId = genId();
+      const audioId = genId();
+      store.addLinkedClips(
+        { id: videoId, trackType: "video", name: item.name, startTime: start, duration: dur, sourceOffset: 0, color: TRACK_COLORS.video, linkedClipId: audioId, src: item.url, thumbnailUrl: item.thumbnailUrl },
+        { id: audioId, trackType: "mic", name: item.name + " (audio)", startTime: start, duration: dur, sourceOffset: 0, color: TRACK_COLORS.mic, linkedClipId: videoId, src: item.url }
+      );
+    } else if (item.type === "audio") {
+      const trackClips = store.clips.filter((c) => c.trackType === "music");
+      const start = trackClips.length > 0
+        ? Math.max(...trackClips.map((c) => c.startTime + c.duration))
+        : 0;
+      store.addClip({ id: genId(), trackType: "music", name: item.name, startTime: start, duration: dur, sourceOffset: 0, color: TRACK_COLORS.music, src: item.url });
+    } else if (item.type === "image") {
+      const trackClips = store.clips.filter((c) => c.trackType === "broll");
+      const start = trackClips.length > 0
+        ? Math.max(...trackClips.map((c) => c.startTime + c.duration))
+        : 0;
+      store.addClip({ id: genId(), trackType: "broll", name: item.name, startTime: start, duration: 5, sourceOffset: 0, color: TRACK_COLORS.broll, src: item.url, thumbnailUrl: item.thumbnailUrl });
+    }
+  }, []);
+
   const addToTimeline = useCallback((item: LocalMedia) => {
-    // Minimal payload — let DesignCombo's StateManager handle duration/sizing
-    // This matches how the original Pexels video panel dispatches
+    // Add to DesignCombo (Remotion player)
     switch (item.type) {
       case "video":
         dispatch(ADD_VIDEO, {
@@ -137,6 +210,9 @@ export const Uploads = () => {
         });
         break;
     }
+
+    // Also add to Dragon timeline
+    addToDragonTimeline(item);
   }, []);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -229,13 +305,25 @@ function MediaItem({ item, onAdd, onRemove }: {
 }) {
   const dragData = {
     type: item.type,
+    name: item.name,
+    duration: item.duration,
     details: { src: item.url },
     metadata: { previewUrl: item.thumbnailUrl || "" },
   };
 
   return (
     <div className="group relative">
-      <Draggable data={dragData}>
+      <Draggable data={dragData} renderCustomPreview={
+        <div className="rounded-md shadow-lg overflow-hidden opacity-80" style={{ width: 80, height: 45 }}>
+          {item.thumbnailUrl ? (
+            <img src={item.thumbnailUrl} alt="" className="w-full h-full object-cover" draggable={false} />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center" style={{ backgroundColor: item.type === "video" ? TRACK_COLORS.video : item.type === "audio" ? TRACK_COLORS.music : TRACK_COLORS.broll }}>
+              {item.type === "audio" ? <Music className="w-4 h-4 text-white/60" /> : <VideoIcon className="w-4 h-4 text-white/60" />}
+            </div>
+          )}
+        </div>
+      }>
         <div
           onClick={() => onAdd(item)}
           className="aspect-video flex items-center justify-center overflow-hidden cursor-pointer rounded-lg border border-border hover:ring-1 hover:ring-primary/50 transition-all bg-card"
@@ -249,12 +337,6 @@ function MediaItem({ item, onAdd, onRemove }: {
           )}
         </div>
       </Draggable>
-      {/* Add to timeline button */}
-      <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-        <div className="bg-black/50 rounded-full p-1.5 pointer-events-auto cursor-pointer" onClick={() => onAdd(item)}>
-          <Plus className="w-4 h-4 text-white" />
-        </div>
-      </div>
       {/* Delete button */}
       <button
         onClick={(e) => { e.stopPropagation(); onRemove(item.id); }}

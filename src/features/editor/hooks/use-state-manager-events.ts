@@ -47,7 +47,8 @@ export const useStateManagerEvents = (stateManager: StateManager) => {
     setState({
       trackItemsMap: currentState.trackItemsMap,
       trackItemIds: currentState.trackItemIds,
-      tracks: currentState.tracks
+      tracks: currentState.tracks,
+      duration: currentState.duration,
     });
   }, [stateManager, setState]);
 

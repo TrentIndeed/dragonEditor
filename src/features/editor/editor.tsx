@@ -1,5 +1,7 @@
 "use client";
-import Timeline from "./timeline";
+import DragonTimeline from "./dragon-timeline/Timeline";
+import PlaybackControls from "./dragon-timeline/PlaybackControls";
+import AIPipelinePrompt from "./dragon-timeline/AIPipelinePrompt";
 import useStore from "./store/use-store";
 import Navbar from "./navbar";
 import useTimelineEvents from "./hooks/use-timeline-events";
@@ -35,6 +37,8 @@ import { useLinkedAudio } from "./hooks/use-linked-audio";
 import { useSnap } from "./hooks/use-snap";
 import { useRippleDelete } from "./hooks/use-ripple-delete";
 import { design } from "./mock";
+import { useDragonTimelineSync } from "./hooks/use-dragon-timeline-sync";
+import { useStateManagerEvents } from "./hooks/use-state-manager-events";
 // import { Separator } from "@/components/ui/separator";
 
 const stateManager = new StateManager({
@@ -64,7 +68,7 @@ const SceneContainer = ({
       </div>
 
       <div className="w-full">
-        {playerRef && <Timeline stateManager={stateManager} />}
+        {playerRef && <DragonTimeline />}
       </div>
 
       {!isLargeScreen && !trackItem && loaded && <MenuListHorizontal />}
@@ -99,11 +103,13 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
   const isLargeScreen = useIsLargeScreen();
 
   useTimelineEvents();
+  useStateManagerEvents(stateManager);
   useAutoSave();
   useLinkedAudio();
   useSnap();
   useRippleDelete();
   useKeyboardShortcuts();
+  useDragonTimelineSync();
 
   const { setCompactFonts, setFonts } = useDataState();
   // useEffect(() => {
@@ -130,31 +136,13 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
     timelinePanelRef.current?.resize(percentage);
   }, []);
 
-  const handleTimelineResize = () => {
-    const timelineContainer = document.getElementById("timeline-container");
-    if (!timelineContainer) return;
-
-    timeline?.resize(
-      {
-        height: timelineContainer.clientHeight - 90,
-        width: timelineContainer.clientWidth - 40,
-      },
-      {
-        force: true,
-      },
-    );
-
-    // Trigger zoom recalculation when timeline is resized
-    setTimeout(() => {
-      sceneRef.current?.recalculateZoom();
-    }, 100);
-  };
-
   useEffect(() => {
-    const onResize = () => handleTimelineResize();
+    const onResize = () => {
+      setTimeout(() => sceneRef.current?.recalculateZoom(), 100);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
-  }, [timeline]);
+  }, []);
 
   useEffect(() => {
     if (activeIds.length === 1) {
@@ -245,9 +233,11 @@ const Editor = ({ tempId, id }: { tempId?: string; id?: string }) => {
             )}
           </div>
 
-          {/* Timeline — full width under content panels */}
+          {/* Playback controls + Timeline — full width under content panels */}
+          <PlaybackControls />
+          <AIPipelinePrompt />
           <div className="w-full">
-            {playerRef && <Timeline stateManager={stateManager} />}
+            {playerRef && <DragonTimeline />}
           </div>
 
           {!isLargeScreen && !trackItem && loaded && <MenuListHorizontal />}

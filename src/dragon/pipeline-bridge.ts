@@ -9,6 +9,7 @@
 import { dispatch } from "@designcombo/events";
 import {
   ADD_ITEMS,
+  ADD_VIDEO,
   ADD_AUDIO,
   ADD_TEXT,
   ACTIVE_SPLIT,
@@ -16,10 +17,69 @@ import {
   EDIT_OBJECT,
   HISTORY_UNDO,
 } from "@designcombo/state";
+import { generateId as dcGenerateId } from "@designcombo/timeline";
 
 // Generate unique IDs matching DesignCombo's format
 function generateId(): string {
   return Math.random().toString(36).substring(2, 15);
+}
+
+/**
+ * After Dragon timeline is modified (cuts, trims), update the DesignCombo
+ * player so the preview reflects the edits.
+ *
+ * Takes the existing video item as-is and clones it for each Dragon clip
+ * fragment — only changing display (timeline position) and trim (source position).
+ * Everything else (details, styling, src) stays exactly the same.
+ */
+async function syncDragonToDesignCombo(useDragonTimelineStore: any) {
+  const { default: useStore } = await import("@/features/editor/store/use-store");
+  const { setCutSegments } = await import("@/features/editor/player/items/video");
+
+  const store = useDragonTimelineStore.getState();
+  const videoClips = store.clips
+    .filter((c: any) => c.trackType === "video")
+    .sort((a: any, b: any) => a.startTime - b.startTime);
+  if (videoClips.length === 0) return;
+
+  // Build cut map: maps packed timeline position → source video position
+  // Single video item in Remotion, no multiple Sequences, no black frames
+  const segments: { packedStart: number; sourceStart: number; duration: number }[] = [];
+  let packedCursor = 0;
+  for (const clip of videoClips) {
+    segments.push({
+      packedStart: packedCursor,
+      sourceStart: clip.sourceOffset,
+      duration: clip.duration,
+    });
+    packedCursor += clip.duration;
+  }
+
+  // Set the cut map so the Video component can map frames
+  setCutSegments(segments);
+
+  // Update the single existing video item's duration to the packed total
+  const dcState = useStore.getState();
+  const original = Object.values(dcState.trackItemsMap).find(
+    (item: any) => item.type === "video"
+  ) as any;
+  if (!original) return;
+
+  const totalMs = Math.round(packedCursor * 1000);
+
+  const updatedItem = {
+    ...original,
+    display: { from: 0, to: totalMs },
+    trim: { from: 0, to: totalMs },
+    duration: totalMs,
+  };
+
+  const newMap = { ...dcState.trackItemsMap, [original.id]: updatedItem };
+
+  await useStore.getState().setState({
+    trackItemsMap: newMap,
+    duration: totalMs,
+  });
 }
 
 /**
@@ -68,32 +128,166 @@ async function runTrimStage(
   trackItemIds: string[],
   duration: number
 ): Promise<{ success: boolean; message: string }> {
-  // For now, use AI to analyze and suggest trims
-  // In the future, this will call generateTrimSuggestionsAI
   try {
-    const { callAI, parseAIJson } = await import("@/dragon/ai");
+    const { transcribeVideo, isTranscribeServerRunning } = await import("@/lib/transcribe");
+    const { useDragonTimelineStore } = await import("@/features/editor/store/use-dragon-timeline");
+    const { useHistoryStore } = await import("@/features/editor/store/use-history");
 
-    const items = trackItemIds.map((id) => trackItemsMap[id]).filter(Boolean);
-    const videoItems = items.filter((i: any) => i.type === "video");
-
-    if (videoItems.length === 0) {
-      return { success: true, message: "No video items to trim." };
+    // Check if transcription server is running
+    const serverUp = await isTranscribeServerRunning();
+    if (!serverUp) {
+      return {
+        success: false,
+        message: "Transcription server not running. Start it with: python transcribe-server.py",
+      };
     }
 
-    // Call AI for trim suggestions
-    const { result, usedAI } = await callAI(
-      `Analyze this video timeline with ${videoItems.length} clips, total duration ${duration}ms. Suggest trim points (silence removal, intro/outro padding). Return a JSON array of { "reason": "description" } items. Return [] if no trims needed.`
-    );
+    // Find video clips with audio to transcribe
+    const store = useDragonTimelineStore.getState();
+    const videoClips = store.clips.filter((c) => c.trackType === "video" && c.src);
 
-    const suggestions = usedAI ? (parseAIJson(result) || []) : [];
+    if (videoClips.length === 0) {
+      return { success: false, message: "No video clips with audio to analyze." };
+    }
+
+    // Transcribe each video clip
+    type CutRegion = { start: number; end: number; duration: number; reason: string };
+    const allCuts: CutRegion[] = [];
+    const allFillers: { start: number; end: number; word: string }[] = [];
+    let totalWords = 0;
+    let repeatsFound = 0;
+    let falseStartsFound = 0;
+
+    for (const clip of videoClips) {
+      if (!clip.src) continue;
+
+      const result = await transcribeVideo(clip.src);
+      totalWords += result.stats.total_words;
+
+      const offset = clip.startTime;
+
+      // 1. Silence detection — only cut pauses longer than 1.0s
+      const minSilence = settings.minSilenceDuration || 1.0;
+      for (const silence of result.silences) {
+        if (silence.duration >= minSilence) {
+          allCuts.push({
+            start: offset + silence.start,
+            end: offset + silence.end,
+            duration: silence.duration,
+            reason: `${silence.duration.toFixed(1)}s silence`,
+          });
+        }
+      }
+
+      // 2. Filler word detection (report only, don't cut)
+      for (const filler of result.fillers) {
+        allFillers.push({
+          start: offset + filler.start,
+          end: offset + filler.end,
+          word: filler.word,
+        });
+      }
+
+      // 3. Beginning repeat detection — check first segment for repeated phrase
+      if (clip === videoClips[0] && result.words.length > 6) {
+        const words = result.words;
+        // Look for 2-4 word phrase repeated at the start
+        for (let len = 2; len <= 4 && len * 2 <= words.length; len++) {
+          const first = words.slice(0, len).map(w => w.word.toLowerCase().replace(/[.,!?]/g, "")).join(" ");
+          const second = words.slice(len, len * 2).map(w => w.word.toLowerCase().replace(/[.,!?]/g, "")).join(" ");
+          if (first === second && first.length > 5) {
+            // Cut from start to where the second (good) phrase begins
+            const cutEnd = offset + words[len].start;
+            allCuts.push({
+              start: offset,
+              end: cutEnd,
+              duration: cutEnd - offset,
+              reason: `repeated: "${first}"`,
+            });
+            repeatsFound++;
+            break;
+          }
+        }
+      }
+    }
+
+    // Merge overlapping cut regions
+    allCuts.sort((a, b) => a.start - b.start);
+    const merged: CutRegion[] = [];
+    for (const cut of allCuts) {
+      const last = merged[merged.length - 1];
+      if (last && cut.start <= last.end + 0.1) {
+        // Overlapping or adjacent — extend
+        last.end = Math.max(last.end, cut.end);
+        last.duration = last.end - last.start;
+        last.reason += ` + ${cut.reason}`;
+      } else {
+        merged.push({ ...cut });
+      }
+    }
+
+    // Add safety padding so cuts don't chop mid-word (0.3s each side)
+    // Exceptions:
+    //   - No left padding for cuts at the very beginning
+    //   - No right padding for repeat cuts (they end exactly where good take starts)
+    const PADDING = 0.3;
+    const regionsToRemove = merged
+      .map((r) => {
+        const isBeginning = r.start < 0.1;
+        const isRepeat = r.reason.includes("repeated");
+        const padLeft = isBeginning ? 0 : PADDING;
+        const padRight = isRepeat ? 0 : PADDING;
+        return {
+          ...r,
+          start: r.start + padLeft,
+          end: r.end - padRight,
+          duration: (r.end - padRight) - (r.start + padLeft),
+        };
+      })
+      .filter((r) => r.duration > 0.1);
+
+    let trimmedDuration = 0;
+    if (regionsToRemove.length > 0) {
+      useHistoryStore.getState().pushSnapshot();
+
+      // Process from end to start so earlier positions stay valid
+      const cutsDesc = [...regionsToRemove].reverse();
+      for (const region of cutsDesc) {
+        if (region.end <= region.start) continue;
+        trimmedDuration += region.end - region.start;
+        useDragonTimelineStore.getState().markCutRegion(region.start, region.end);
+      }
+
+      // Sync Dragon timeline back to DesignCombo so the player reflects cuts
+      await syncDragonToDesignCombo(useDragonTimelineStore);
+    }
+    const parts: string[] = [];
+    parts.push(`Transcribed ${totalWords} words`);
+    if (regionsToRemove.length > 0) {
+      parts.push(`cut ${regionsToRemove.length} regions (${trimmedDuration.toFixed(1)}s removed)`);
+    }
+    if (repeatsFound > 0) {
+      parts.push(`${repeatsFound} repeated phrases removed`);
+    }
+    if (falseStartsFound > 0) {
+      parts.push(`${falseStartsFound} false starts removed`);
+    }
+    if (allFillers.length > 0) {
+      parts.push(`${allFillers.length} filler words detected (${[...new Set(allFillers.map(f => f.word))].join(", ")})`);
+    }
+    if (regionsToRemove.length === 0) {
+      parts.push("no issues detected");
+    }
+
     return {
       success: true,
-      message: usedAI
-        ? `AI found ${(suggestions as any[]).length} trim suggestions.`
-        : `Trim analysis complete. ${videoItems.length} clips analyzed.`,
+      message: parts.join(". ") + ".",
     };
-  } catch {
-    return { success: true, message: "Trim analysis complete." };
+  } catch (err: any) {
+    return {
+      success: false,
+      message: `Trim failed: ${err.message}`,
+    };
   }
 }
 

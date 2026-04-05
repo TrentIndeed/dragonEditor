@@ -108,4 +108,9 @@ const useStore = create<ITimelineStore>((set) => ({
   setSceneMoveableRef: (ref) => set({ sceneMoveableRef: ref })
 }));
 
+// Expose for CutAwareVideo to access playerRef.isPlaying()
+if (typeof window !== "undefined") {
+  (window as any).__dragonEditorStore = useStore;
+}
+
 export default useStore;
